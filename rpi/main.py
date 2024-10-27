@@ -47,12 +47,12 @@ command_queue = queue.Queue()
 send_queue = queue.Queue()
 
 # put something in the command_queue right away so that it can boot to something
-command_queue.put(
-    {
-        "command": "loadfile",
-        "args": "/home/pi/github/xmastree2023/examples/rainbow-implosion.csv",
-    }
-)
+#command_queue.put(
+#    {
+#        "command": "loadfile",
+#        "args": "/home/pi/github/xmastree2023/examples/rainbow-implosion.csv",
+#    }
+#)
 
 
 if __name__ == "__main__":

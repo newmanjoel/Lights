@@ -32,6 +32,45 @@ logger.info(f"{config.fps=}")
 column_names = all_standard_column_names(config.led_num)
 
 
+try:
+    import paho.mqtt.client as paho
+except ImportError as e:
+    logger.error("Could not import the mqtt library, please run `pip install paho-mqtt`")
+    sys.exit(1)
+
+
+
+def on_message(mosq, obj, msg):
+    logger.info(f"{msg.topic} {msg.qos} {msg.payload}")
+    mosq.publish('pong', 'ack', 0)
+    match(msg.topic):
+        case 'command/lights/location':
+            mqtt_location(mosq, obj, msg)
+        case 'zigbee2mqtt/motion_sensor_1':
+            data = json.loads(msg.payload)
+            logger.getChild("motion sensors").info(f'{msg.payload} {data=}')
+        case _:
+            logger.getChild('not_assigned').warning(f'{msg.topic=}')
+
+def on_publish(mosq, obj, mid):
+    pass
+
+def mqtt_brightness(mosq, obj, msg):
+    logger.getChild("Brightness").info(f"{msg.topic=} {msg.qos=} {msg.payload=}")
+    mosq.publish('command/lights/brightness/result', 'result number', 0)
+
+def mqtt_location(mosq, obj, msg):
+    logger.getChild("Brightness").info(f"{msg.topic=} {msg.qos=} {msg.payload=}")
+    mosq.publish('command/lights/location/', 0)
+
+
+
+def setup_mqtt_topics():
+    client.subscribe("zigbee2mqtt/motion_sensor_1/#", 0)
+    client.subscribe('command/lights/brightness/set', 0)
+    client.subscribe('command/lights/location/', 0)
+
+
 def handle_get_logs(*, send_back, send_queue: queue.Queue, **kwargs):
     data = json.dumps(config.log_capture.getvalue()).encode("utf-8")
     send_queue.put((send_back, data))
@@ -295,3 +334,17 @@ def handle_commands(
             local_logger.error(f"{e}")
             pass
     local_logger.info("Exiting")
+
+
+
+client = paho.Client()
+client.on_message = on_message
+client.on_publish = on_publish
+client.connect("127.0.0.1", 1883, 60)
+setup_mqtt_topics()
+logger.info(f"{client.__dict__=}")
+
+
+while client.loop() == 0:
+    pass
+
