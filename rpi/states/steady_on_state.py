@@ -1,12 +1,25 @@
 import logging
 from datetime import datetime, timedelta
 
-import paho
+import paho.mqtt.client as paho
 from Transitions import Transitions
 from State import State
 import threading
 import queue
 
+# Add the root directory to the Python path
+import os, sys
+
+current_directory = os.path.dirname(os.path.abspath(__file__))
+webservers_directory = os.path.abspath(os.path.join(current_directory, ".."))
+sys.path.append(webservers_directory)
+
+from common.common_objects import (
+    setup_common_logger,
+)
+
+logger = logging.getLogger("steady_on")
+logger = setup_common_logger(logger)
 
 state_timer = datetime.now()
 
@@ -23,6 +36,9 @@ def handle_networking(return_queue: queue.Queue, mqtt_client: paho.Client, stop_
             case 'trigger/stop':
                 ll.debug(f"{msg.topic} {msg.qos} {msg.payload}")
                 return_queue.put(Transitions.stop)
+            case 'zigbee2mqtt/motion_sensor_1':
+                ll.debug(f"{msg.topic} {msg.qos} {msg.payload}") 
+                return_queue.put(Transitions.to_house)
             case _:
                 ll.warning(f"Topic not assigned. {msg.topic} {msg.qos} {msg.payload}")
     mqtt_client.on_message = on_message
@@ -37,18 +53,18 @@ def handle_networking(return_queue: queue.Queue, mqtt_client: paho.Client, stop_
 # start up a thread and keep track of it
 web_server_thread = threading.Thread(
         target=handle_networking,
-        args=(trigger_feedback, mqtt_client),
+        args=(trigger_feedback, mqtt_client, stop_event),
     )
 
 def on_entry(state:State, what_happened:Transitions = Transitions.unknown) -> None:
     global state_timer
-    logging.getLogger('state').getChild(state.name).debug(f"entering {state.name} due to {what_happened}")
+    logger.getChild('on_entry').debug(f"entering {state.name} due to {what_happened}")
     state_timer = datetime.now() + timedelta(seconds=5)
     stop_event.clear()
-    web_server_thread.run()
+    web_server_thread.start()
 
 def on_exit(state, what_happened:Transitions = Transitions.unknown) -> None:
-    logging.getLogger('state').getChild(state.name).debug(f"leaving {state.name} due to {what_happened}")
+    logger.getChild('on_exit').debug(f"leaving {state.name} due to {what_happened}")
     stop_event.set()
     web_server_thread.join(timeout=1)
 
@@ -63,7 +79,7 @@ def subsribe_to_mqtt_event(state:State) -> Transitions | None:
         return None
     result= trigger_feedback.get()
     if type(result) != Transitions:
-        logging.getLogger('steady_on.subscribe_to_mqtt').error(f'received {result=} object which is not a transition object. Returning None')
+        logger.getChild('subscribe_to_mqtt').error(f'received {result=} object which is not a transition object. Returning None')
         return None
     return result
     

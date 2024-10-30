@@ -85,26 +85,39 @@ class StateMachine():
         self.states[from_state.name] = from_state
         self.states[to_state.name] = to_state
 
-        working_state:dict = self.state_dict.get(from_state.name, {})
+        working_state: dict = self.state_dict.get(from_state.name, {})
         working_state[when] = to_state.name
         self.state_dict[from_state.name] = working_state
         # logger.getChild("on_transition").debug(f"{working_state=}")
         return self
 
+    def loop(self) -> None:
+        ll = logger.getChild('loop')
+        # ll.debug('starting trigger_checking')
+        result = self.current_state.check_triggers()
+        if result is not None:
+            ll.debug(f'{result=}')
+        self.trigger(result)
+
     def trigger(self, what_trigger: Transitions) -> Self:
         '''Pass in all of the transitions, the dictionary will figure out if we need to change state or not'''
         if what_trigger is None:
             return self
+        ll = logger.getChild('trigger')
         possible_states: dict = self.state_dict.get(self.current_state.name, {})
         if len(possible_states) == 0:
             return self
         if what_trigger in possible_states:
             new_state_name = possible_states[what_trigger]
-            logger.getChild("trigger").info(f"want to change to state {new_state_name=}")
+            # ll.debug(f"want to change to state {new_state_name=} due to {what_trigger}")
             new_state = self.states[new_state_name]
+            # ll.debug(f"{new_state=}")
             self.current_state.on_exit(what_trigger)
+            # ll.debug(f'after on_exit')
             new_state.on_entry(what_trigger)
+            # ll.debug(f'after on_entry')
             self.current_state = new_state
+            logger.getChild('trigger').info(f'changed to state: {self.current_state.name}')
         return self
 
 
@@ -112,14 +125,17 @@ class StateMachine():
 
 idle = State('idle')
 steady_on = State('steady_on')
-states = StateMachine(idle)
+entry = State('entry')
 
-steady_on_state.setup(steady_on)
-idle_state.setup(idle)
+states = StateMachine(entry)
+
+steady_on = steady_on_state.setup(steady_on)
+idle_state = idle_state.setup(idle)
 
 # steady_on.on_entry_func = steady_on_state.on_entry
 # steady_on.check_triggers = steady_on_state.trigger_generation
 
+states.on_transition(entry, idle, Transitions.animation_end)
 states.on_transition(idle, steady_on, Transitions.to_house)
 states.on_transition(idle, idle, Transitions.timeout)
 
@@ -128,14 +144,19 @@ states.on_transition(steady_on, idle, Transitions.stop)
 states.on_transition(steady_on, idle, Transitions.timeout)
 
 
+logger.info(f"{idle=}")
+states.trigger(Transitions.animation_end)
+
 import time
 try:
     while True:
-        states.trigger(states.current_state.check_triggers())
+        states.loop()
         time.sleep(0.1)
-except:
-    logger.info("exiting")
-
+except Exception as e:
+    states.trigger(Transitions.stop)
+    logger.info(f"exiting. Cause: {e=}")
+finally:
+    states.trigger(Transitions.stop)
 
 
 

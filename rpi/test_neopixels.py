@@ -18,9 +18,9 @@ lighting = [black] * led_num
 
 clamp = lambda n, minn, maxn: max(min(maxn, n), minn)
 
-fade_amount = 20
-multi_amount = 255 / fade_amount
-fps = 30.0
+fade_amount:int = 20
+multi_amount:float = 255.0 / fade_amount
+fps:float = 30.0
 
 
 def rgb_to_hex(r, g, b):
@@ -38,7 +38,7 @@ def hex_to_rgb(hex_color):
 
 for x in range(fade_amount):
     red = int(clamp(x * multi_amount, 0, 255))
-    lighting[x] = rgb_to_hex(0, red, 0)
+    lighting[x] = rgb_to_hex(79, red, 0)
 
 actual_FPS = 0
 loading_time = 0
