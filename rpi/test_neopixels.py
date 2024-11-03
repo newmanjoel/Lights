@@ -1,6 +1,7 @@
 import board
 import neopixel
 import time
+import datetime
 
 led_num = 250
 pixels = neopixel.NeoPixel(
@@ -8,13 +9,16 @@ pixels = neopixel.NeoPixel(
 )
 import numpy as np
 
+# remember grb
 black = "#090909"
+orange = "#1c5c00"
 
-pixels.fill((100, 100, 100))
+pixels.fill((78, 252, 0))
 pixels.show()
+pixels.brightness = 0.50
 
 
-lighting = [black] * led_num
+lighting = [orange] * led_num
 
 clamp = lambda n, minn, maxn: max(min(maxn, n), minn)
 
@@ -38,7 +42,7 @@ def hex_to_rgb(hex_color):
 
 for x in range(fade_amount):
     red = int(clamp(x * multi_amount, 0, 255))
-    lighting[x] = rgb_to_hex(79, red, 0)
+    lighting[x] = rgb_to_hex(78, red, 0)
 
 actual_FPS = 0
 loading_time = 0
@@ -54,6 +58,19 @@ try:
         lighting = list(np.roll(lighting, 1, axis=0))
         time3 = time.time()
         pixels.show()
+        current_time = datetime.datetime.now()
+        if current_time.hour > 16: # 4pm
+            #pixels.brightness = 0.6
+            pixels.brightness = 0.60
+            fps = 30.0
+            pass
+        elif current_time.hour > 6: # 6 am
+            #pixles.brightness = 0.0 
+            pixels.brightness = 0.01
+            fps = 1.0
+            pass
+        else:
+            pass
         time.sleep(1 / fps)
         time4 = time.time()
         actual_FPS = time4 - time1
