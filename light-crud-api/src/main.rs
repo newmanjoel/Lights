@@ -1,18 +1,10 @@
 use axum::{routing::get, Router};
-// use serde_json::json;
-
+use std::path::Path;
 use std::{collections::HashMap, sync::Arc};
 
-use std::path::Path;
-
-mod database_stuff;
-use database_stuff::{get_or_create_sqlite_database, AppState};
-
-mod frame;
-
-mod frame_data;
-
-mod location;
+mod database;
+use crate::database::initialize::{get_or_create_sqlite_database, AppState};
+use crate::database::{frame, frame_data, location};
 
 mod config;
 use config::read_or_create_config;
@@ -42,7 +34,6 @@ async fn main() {
         .nest("/frame", frame_routes)
         .nest("/frame_data", frame_data_routes)
         .nest("/location", location_routes);
-
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.web.port))

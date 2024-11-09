@@ -9,8 +9,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use sqlx::FromRow;
 
-use crate::database_stuff::AppState;
-// use crate::frame::Frame;
+use crate::database::initialize::AppState;
 
 const EXAMPLE_DATA: &str = r#"{"location":{"id":1,"x":24.0, "y": 12.0}}"#;
 const GET_SQL_STATEMENT: &str = "SELECT id, x, y FROM LED_Location WHERE id = ? LIMIT 1";
@@ -75,12 +74,8 @@ pub async fn get_location_id(
     };
     return data;
 }
-pub async fn get_all_location(
-    extract::State(state): extract::State<Arc<AppState>>,
-) -> String {
-    let frame_results = sqlx::query_as::<_, LedLocation>(
-        "SELECT id, x, y FROM LED_Location"
-    )
+pub async fn get_all_location(extract::State(state): extract::State<Arc<AppState>>) -> String {
+    let frame_results = sqlx::query_as::<_, LedLocation>("SELECT id, x, y FROM LED_Location")
         .fetch_all(&state.db)
         .await;
 

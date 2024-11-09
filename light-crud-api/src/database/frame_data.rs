@@ -9,7 +9,8 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use sqlx::FromRow;
 
-use crate::database_stuff::AppState;
+use crate::database::initialize::AppState;
+
 // use crate::frame::Frame;
 
 const EXAMPLE_DATA: &str = r#"{"frame_data":{"name":"Some String Name","speed":24.0}}"#;
@@ -61,14 +62,11 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
     return app;
 }
 
-pub async fn get_all_frame_data(
-    extract::State(state): extract::State<Arc<AppState>>,
-) -> String {
-    let frame_results = sqlx::query_as::<_, FrameMetadata>(
-        "SELECT id, name, speed FROM Frame_Metadata"
-    )
-        .fetch_all(&state.db)
-        .await;
+pub async fn get_all_frame_data(extract::State(state): extract::State<Arc<AppState>>) -> String {
+    let frame_results =
+        sqlx::query_as::<_, FrameMetadata>("SELECT id, name, speed FROM Frame_Metadata")
+            .fetch_all(&state.db)
+            .await;
 
     let data: String = match frame_results {
         Ok(value) => serde_json::to_string(&value).unwrap(),
@@ -208,5 +206,3 @@ pub async fn post_frame_data(
         Err(stats) => return json!({"error": stats.to_string()}).to_string(),
     };
 }
-
-

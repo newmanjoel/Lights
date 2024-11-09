@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 
 use sqlx::FromRow;
 
-use crate::database_stuff::AppState;
+use crate::database::initialize::AppState;
 
 const EXAMPLE_DATA: &str = r#"{"frame":{"parent_id":1,"frame_id":1, "data":"[1,2,3]"}}"#;
 const GET_SQL_STATEMENT: &str =
@@ -103,14 +103,11 @@ pub async fn get_frame_id(
     return serde_json::to_string(&data).unwrap();
 }
 
-pub async fn get_all_frame(
-    extract::State(state): extract::State<Arc<AppState>>,
-) -> String {
-    let frame_results = sqlx::query_as::<_, Frame>(
-        "SELECT id, parent_id, frame_id, data FROM Frames"
-    )
-        .fetch_all(&state.db)
-        .await;
+pub async fn get_all_frame(extract::State(state): extract::State<Arc<AppState>>) -> String {
+    let frame_results =
+        sqlx::query_as::<_, Frame>("SELECT id, parent_id, frame_id, data FROM Frames")
+            .fetch_all(&state.db)
+            .await;
     let data = match frame_results {
         Ok(value) => value,
         Err(error) => {
