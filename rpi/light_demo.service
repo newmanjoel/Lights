@@ -1,0 +1,14 @@
+[Unit]
+Description=Lighting Demo
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+User=root
+ExecStart=/usr/bin/python /home/pi/Lights/rpi/test_neopixels.py
+
+[Install]
+WantedBy=multi-user.target
