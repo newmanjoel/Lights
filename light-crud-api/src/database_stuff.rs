@@ -5,11 +5,14 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
 use sqlx::FromRow;
 use sqlx::{query, Error};
 
-#[derive(Clone, FromRow, Debug, Serialize)]
-pub struct Frame {
-    id: i64,
-    parent_id: i64,
-    data: String,
+use crate::frame::Frame;
+
+
+
+
+#[derive(Clone, Debug)]
+pub struct AppState {
+    pub db: SqlitePool,
 }
 
 pub async fn get_or_create_sqlite_database(filepath: &Path) -> Result<SqlitePool, Error> {
@@ -81,3 +84,5 @@ pub async fn read_dummy_data(pool: &SqlitePool) -> Result<Vec<Frame>, Error> {
     }
     return Ok(frame_results);
 }
+
+

@@ -14,12 +14,16 @@ use sqlx::sqlite::SqlitePool;
 use std::path::Path;
 
 mod database_stuff;
-use database_stuff::{get_or_create_sqlite_database, read_dummy_data};
+use database_stuff::{get_or_create_sqlite_database, read_dummy_data, AppState};
 
-#[derive(Clone, Debug)]
-struct AppState {
-    db: SqlitePool,
-}
+mod frame;
+use frame::*;
+
+mod frame_data;
+use frame_data::*;
+
+
+
 
 async fn hello_world() -> &'static str {
     return "Hello World!";
@@ -43,38 +47,9 @@ async fn do_something(extract::State(state): extract::State<Arc<AppState>>) -> S
     return owned_data;
 }
 
-async fn get_frame_id(
-    extract::Path(frame_id): extract::Path<i32>,
-    extract::State(state): extract::State<Arc<AppState>>,
-) -> String {
-    let frames = match read_dummy_data(&state.db).await {
-        Ok(frames) => frames,
-        Err(error) => {
-            panic!("do_something: {error:?}");
-            // return Err(ApiError::InternalServerError);
-        }
-    };
-    println!("do_something: {frames:?}");
-    let data: Vec<String> = frames
-        .iter()
-        .map(|frame| serde_json::to_string(&frame).unwrap())
-        .to_owned()
-        .collect();
-    let owned_data = data.join("|") + &frame_id.to_string();
-    return owned_data;
-}
 
-async fn set_frame_id(
-    extract::Path(frame_id): extract::Path<i32>,
-    extract::State(state): extract::State<Arc<AppState>>,
-    payload: String,
-) -> String {
-    let json_payload: Value = match serde_json::from_str(&payload){
-        Ok(result) => result,
-        Err(error) => return format!("Error parsing Json: {error:?}"),
-    };
-    return format!("Setting data for id: {frame_id:?} with payload of: {json_payload:?}");
-}
+
+
 
 #[tokio::main]
 async fn main() {
@@ -85,8 +60,9 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(hello_world))
-        .route("/do_something", get(do_something))
-        .route("/do_id/:id", get(get_frame_id).post(set_frame_id))
+        .route("/frame/:id", get(get_frame_id).post(post_frame_id))
+        .route("/frame_data/:id", get(get_frame_data_id).post(post_frame_data_id))
+        .route("/do_id/:id", get(get_frame_id).post(post_frame_id))
         .with_state(state);
 
     // run our app with hyper, listening globally on port 3000
