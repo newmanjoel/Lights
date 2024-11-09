@@ -50,14 +50,31 @@ impl FrameMetadata {
 pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> Router {
     let app = Router::new()
         .route("/", post(post_frame_data))
+        .route("/", get(get_all_frame_data))
         .route("/:id", get(get_frame_data_id))
         .route("/:id", put(put_frame_data_id))
         .route("/:id", delete(delete_frame_data_id))
         .with_state(state);
 
-    index.insert("/frame_data", "POST");
+    index.insert("/frame_data", "GET,POST");
     index.insert("/frame_data/:id", "GET,PUT,DELETE");
     return app;
+}
+
+pub async fn get_all_frame_data(
+    extract::State(state): extract::State<Arc<AppState>>,
+) -> String {
+    let frame_results = sqlx::query_as::<_, FrameMetadata>(
+        "SELECT id, name, speed FROM Frame_Metadata"
+    )
+        .fetch_all(&state.db)
+        .await;
+
+    let data: String = match frame_results {
+        Ok(value) => serde_json::to_string(&value).unwrap(),
+        Err(value) => return json!({"error": value.to_string()}).to_string(),
+    };
+    return data;
 }
 
 pub async fn get_frame_data_id(
@@ -192,34 +209,4 @@ pub async fn post_frame_data(
     };
 }
 
-pub async fn post_add_animation(
-    extract::State(_state): extract::State<Arc<AppState>>,
-    payload: String,
-) -> String {
-    let json_payload: Value = match serde_json::from_str(&payload) {
-        Ok(result) => result,
-        Err(error) => return format!("Error parsing Json: {error:?}"),
-    };
 
-    let _frame_array = match json_payload.get("frame_data") {
-        Some(arr) => arr,
-        None => return format!("Error geting the frame_data object"),
-    };
-    todo!();
-    return format!("got a payload of: {payload:?} and a Json Payload of {json_payload:?}");
-
-    // let frame_results = sqlx::query_as::<_, Frame_Metadata>("SELECT id, name, speed FROM Frame_Metadata WHERE id = ?")
-    //     .bind(frame_id)
-    //     .fetch_all(&state.db)
-    //     .await
-    //     .unwrap();
-
-    // println!("do_something: {frame_results:?}");
-    // let data: Vec<String> = frame_results
-    //     .iter()
-    //     .map(|frame_metadata| serde_json::to_string(&frame_metadata).unwrap())
-    //     .to_owned()
-    //     .collect();
-    // let owned_data = data.join("|") + &frame_id.to_string();
-    // return owned_data;
-}

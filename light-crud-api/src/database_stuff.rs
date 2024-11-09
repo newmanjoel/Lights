@@ -1,11 +1,6 @@
-use std::path::Path;
-
-use serde::Serialize;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
-use sqlx::FromRow;
 use sqlx::{query, Error};
-
-use crate::frame::Frame;
+use std::path::Path;
 
 #[derive(Clone, Debug)]
 pub struct AppState {
@@ -26,8 +21,6 @@ pub async fn get_or_create_sqlite_database(filepath: &Path) -> Result<SqlitePool
         Err(error) => panic!("Problem creating tables: {error:?}"),
     };
 
-    // load_dummy_data(&pool).await;
-    // read_dummy_data(&pool).await;
     return Ok(pool);
 }
 
@@ -62,24 +55,4 @@ pub async fn create_table_structure(pool: &SqlitePool) -> Result<(), Error> {
     query(frame_sqlite).execute(pool).await?;
     query(location_sqlite).execute(pool).await?;
     return Ok(());
-}
-
-async fn load_dummy_data(pool: &SqlitePool) {
-    let parent_id = 2;
-    // let result = sqlx::query("INSERT INTO Frame_Metadata (id, name, speed) VALUES (?, ?, ?)")
-    //     .bind(parent_id)
-    //     .bind("Some descriptor")
-    //     .bind(32.3)
-    //     .execute(pool)
-    //     .await
-    //     .unwrap();
-    // println!("Query result: {:?}", result);
-
-    let result = sqlx::query("INSERT INTO Frames (parent_id, data) VALUES (?, ?)")
-        .bind(parent_id)
-        .bind("[1,2,3]")
-        .execute(pool)
-        .await
-        .unwrap();
-    println!("Query result: {:?}", result);
 }

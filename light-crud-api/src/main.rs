@@ -43,15 +43,6 @@ async fn main() {
         .nest("/frame_data", frame_data_routes)
         .nest("/location", location_routes);
 
-    // .route("/location", post(post_frame_data))
-    // .route("/location/:id", get(get_frame_data_id))
-    // .route("/location/:id", put(put_frame_data_id))
-    // .route("/location/:id", delete(delete_frame_data_id))
-    // .route("/add_animation", post(post_add_animation))
-    // .with_state(state);
-
-    // app = frame::setup(app, &mut index);
-    // app = app.with_state(state);
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.web.port))

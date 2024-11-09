@@ -74,12 +74,13 @@ impl Frame {
 pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> Router {
     let app = Router::new()
         .route("/", post(post_frame))
+        .route("/", get(get_all_frame))
         .route("/:id", get(get_frame_id))
         .route("/:id", put(put_frame_id))
         .route("/:id", delete(delete_frame_id))
         .with_state(state);
 
-    index.insert("/frame", "POST");
+    index.insert("/frame", "GET,POST");
     index.insert("/frame/:id", "GET,PUT,DELETE");
     return app;
 }
@@ -91,6 +92,24 @@ pub async fn get_frame_id(
     let frame_results = sqlx::query_as::<_, Frame>(GET_SQL_STATEMENT)
         .bind(frame_id)
         .fetch_one(&state.db)
+        .await;
+    let data = match frame_results {
+        Ok(value) => value,
+        Err(error) => {
+            return json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()
+        }
+    };
+
+    return serde_json::to_string(&data).unwrap();
+}
+
+pub async fn get_all_frame(
+    extract::State(state): extract::State<Arc<AppState>>,
+) -> String {
+    let frame_results = sqlx::query_as::<_, Frame>(
+        "SELECT id, parent_id, frame_id, data FROM Frames"
+    )
+        .fetch_all(&state.db)
         .await;
     let data = match frame_results {
         Ok(value) => value,

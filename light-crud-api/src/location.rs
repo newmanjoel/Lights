@@ -49,6 +49,7 @@ impl LedLocation {
 pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> Router {
     let app = Router::new()
         .route("/", post(post_location))
+        .route("/", get(get_all_location))
         .route("/:id", get(get_location_id))
         .route("/:id", put(put_location_id))
         .route("/:id", delete(delete_location_id))
@@ -66,6 +67,21 @@ pub async fn get_location_id(
     let frame_results = sqlx::query_as::<_, LedLocation>(GET_SQL_STATEMENT)
         .bind(frame_id)
         .fetch_one(&state.db)
+        .await;
+
+    let data: String = match frame_results {
+        Ok(value) => serde_json::to_string(&value).unwrap(),
+        Err(value) => return json!({"error": value.to_string()}).to_string(),
+    };
+    return data;
+}
+pub async fn get_all_location(
+    extract::State(state): extract::State<Arc<AppState>>,
+) -> String {
+    let frame_results = sqlx::query_as::<_, LedLocation>(
+        "SELECT id, x, y FROM LED_Location"
+    )
+        .fetch_all(&state.db)
         .await;
 
     let data: String = match frame_results {
