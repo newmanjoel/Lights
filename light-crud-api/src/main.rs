@@ -1,83 +1,73 @@
-use axum::{extract, routing::get, Router};
-use axum::{
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    Json,
-};
-use std::sync::Arc;
+use axum::{routing::get, Router};
+// use serde_json::json;
 
-use serde::Serialize;
-use serde_json::{Result, Value};
-
-use sqlx::sqlite::SqlitePool;
+use std::{collections::HashMap, sync::Arc};
 
 use std::path::Path;
 
 mod database_stuff;
-use database_stuff::{get_or_create_sqlite_database, read_dummy_data, AppState};
+use database_stuff::{get_or_create_sqlite_database, AppState};
 
 mod frame;
-use frame::*;
 
 mod frame_data;
-use frame_data::*;
 
+mod location;
 
-
-
-async fn hello_world() -> &'static str {
-    return "Hello World!";
-}
-
-async fn do_something(extract::State(state): extract::State<Arc<AppState>>) -> String {
-    let frames = match read_dummy_data(&state.db).await {
-        Ok(frames) => frames,
-        Err(error) => {
-            panic!("do_something: {error:?}");
-            // return Err(ApiError::InternalServerError);
-        }
-    };
-    println!("do_something: {frames:?}");
-    let data: Vec<String> = frames
-        .iter()
-        .map(|frame| serde_json::to_string(&frame).unwrap())
-        .to_owned()
-        .collect();
-    let owned_data = data.join("|");
-    return owned_data;
-}
-
-
-
-
+mod config;
+use config::read_or_create_config;
 
 #[tokio::main]
 async fn main() {
-    let filepath = Path::new("/home/joel/GH/Lights/db/sqlite.db");
-    let pool = get_or_create_sqlite_database(filepath).await.unwrap();
-    let state = Arc::new(AppState { db: pool });
-    println!("{state:?}");
+    let path = "config.toml";
+    let config = match read_or_create_config(path) {
+        Ok(config) => config,
+        Err(e) => panic!("Error: {}", e),
+    };
+    println!("{config:?}");
+    let mut index: HashMap<&'static str, &str> = HashMap::new();
 
-    let app = Router::new()
-        .route("/", get(hello_world))
-        .route("/frame/:id", get(get_frame_id).post(post_frame_id))
-        .route("/frame_data/:id", get(get_frame_data_id).post(post_frame_data_id))
-        .route("/do_id/:id", get(get_frame_id).post(post_frame_id))
-        .with_state(state);
+    let filepath = Path::new(config.database.file_path.as_str());
+    let pool = get_or_create_sqlite_database(filepath).await.unwrap();
+    let state: Arc<AppState> = Arc::new(AppState { db: pool });
+    let frame_routes = frame::router(&mut index, state.clone());
+    let frame_data_routes = frame_data::router(&mut index, state.clone());
+    let location_routes = location::router(&mut index, state.clone());
+
+    let app: Router = Router::new()
+        .route(
+            "/",
+            get(|| async move { return serde_json::to_string_pretty(&index).unwrap().to_string() }),
+        )
+        .nest("/frame", frame_routes)
+        .nest("/frame_data", frame_data_routes)
+        .nest("/location", location_routes);
+
+    // .route("/location", post(post_frame_data))
+    // .route("/location/:id", get(get_frame_data_id))
+    // .route("/location/:id", put(put_frame_data_id))
+    // .route("/location/:id", delete(delete_frame_data_id))
+    // .route("/add_animation", post(post_add_animation))
+    // .with_state(state);
+
+    // app = frame::setup(app, &mut index);
+    // app = app.with_state(state);
 
     // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.web.port))
+        .await
+        .unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn curl() {
-        // curl -X POST http://localhost:3000/do_id/3 -H "Content-Type: application/json" -d '{"key1":[1,2,3.3]}'
-        // Setting data for id: 3 with payload of: Object {"key1": Array [Number(1), Number(2), Number(3.3)]}%   
-        assert!(true);
-    }
-}
+//     #[test]
+//     fn curl() {
+//         // curl -X POST http://localhost:3000/do_id/3 -H "Content-Type: application/json" -d '{"key1":[1,2,3.3]}'
+//         // Setting data for id: 3 with payload of: Object {"key1": Array [Number(1), Number(2), Number(3.3)]}%
+//         assert!(true);
+//     }
+// }

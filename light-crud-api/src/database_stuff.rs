@@ -7,9 +7,6 @@ use sqlx::{query, Error};
 
 use crate::frame::Frame;
 
-
-
-
 #[derive(Clone, Debug)]
 pub struct AppState {
     pub db: SqlitePool,
@@ -35,22 +32,35 @@ pub async fn get_or_create_sqlite_database(filepath: &Path) -> Result<SqlitePool
 }
 
 pub async fn create_table_structure(pool: &SqlitePool) -> Result<(), Error> {
+    let location_sqlite = "
+    CREATE TABLE IF NOT EXISTS LED_Location(
+        id INTEGER PRIMARY KEY,
+        x REAL,
+        y REAL,
+        UNIQUE(x,y)
+    )";
+
     let frame_metadata_sqlite = "
     CREATE TABLE IF NOT EXISTS Frame_Metadata(
         id INTEGER PRIMARY KEY,
         name TEXT,
-        speed REAL
+        speed REAL,
+        UNIQUE(name)
     )";
 
-    let frame_sqlite = "CREATE TABLE IF NOT EXISTS Frames(
+    let frame_sqlite = "
+    CREATE TABLE IF NOT EXISTS Frames(
         id INTEGER PRIMARY KEY,
         parent_id INTEGER,
+        frame_id INTEGER,
         data TEXT,
-        FOREIGN KEY (parent_id) REFERENCES Frame_Metadata(id)
+        FOREIGN KEY (parent_id) REFERENCES Frame_Metadata(id),
+        UNIQUE(parent_id, frame_id)
     )";
 
     query(frame_metadata_sqlite).execute(pool).await?;
     query(frame_sqlite).execute(pool).await?;
+    query(location_sqlite).execute(pool).await?;
     return Ok(());
 }
 
@@ -73,16 +83,3 @@ async fn load_dummy_data(pool: &SqlitePool) {
         .unwrap();
     println!("Query result: {:?}", result);
 }
-
-pub async fn read_dummy_data(pool: &SqlitePool) -> Result<Vec<Frame>, Error> {
-    let frame_results = sqlx::query_as::<_, Frame>("SELECT id, parent_id, data FROM Frames")
-        .fetch_all(pool)
-        .await
-        .unwrap();
-    for frame in &frame_results {
-        println!("{frame:?}");
-    }
-    return Ok(frame_results);
-}
-
-

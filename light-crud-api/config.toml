@@ -1,0 +1,5 @@
+[database]
+file_path = "/home/joel/GH/Lights/db/sqlite.db"
+
+[web]
+port = 3000
