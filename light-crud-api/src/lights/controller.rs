@@ -23,10 +23,12 @@ pub fn setup() -> rs_ws281x::Controller{
 
     let leds = controller.leds_mut(0);
 
-    for led in leds {
+    for led in leds.into_iter() {
         *led = [0, 0, 255, 0];
     }
 
     controller.render().unwrap();
+    let leds = controller.leds_mut(0);
+    println!("led.len()={}", leds.len());
     return controller;
 }
