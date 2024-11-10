@@ -35,6 +35,7 @@ async fn main() {
     tokio::spawn(thread_utils::wait_for_signals(shutdown_signal_notifier));
 
     if config.debug.enable_webserver {
+        println!("Starting Webserver ... ");
         let app = database::initialize::setup(&config).await;
 
         let listener =
@@ -46,10 +47,14 @@ async fn main() {
                 .with_graceful_shutdown(wait_for_shutdown(shutdown_notify_web_server.notify))
                 .await
                 .unwrap();
-        });
+        })
+        .await;
+        println!("Started Webserver ... ");
+    } else {
+        println!("Not Starting Webserver");
     }
-    println!("After webserver");
     if config.debug.enable_lights {
+        println!("Starting Controller loop ... ");
         let _controller_loop = tokio::task::spawn_blocking(|| async move {
             let mut controller = lights::controller::setup();
             let mut test_frame = Frame::new();
@@ -59,9 +64,11 @@ async fn main() {
                 test_frame.data = String::from("[16711680,255, 65280]");
                 lights::controller::write_frame(&test_frame, &mut controller);
             }
-        });
+        }).await;
+        println!("Started Controller Loop ...");
+    } else {
+        println!("Not Starting Lighting Controller");
     }
-    println!("After lights");
 
     // tokio::time::sleep(Duration::from_millis(50)).await;
     wait_for_shutdown(shutdown_notify_main_loop.notify).await;
