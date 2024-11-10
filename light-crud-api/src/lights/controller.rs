@@ -17,7 +17,7 @@ pub fn setup() -> rs_ws281x::Controller {
             ChannelBuilder::new()
                 .pin(12) // GPIO 12 = PWM0 // Default was 10
                 .count(250) // Number of LEDs
-                .strip_type(StripType::Ws2811Rgb)
+                .strip_type(StripType::Ws2811Grb)
                 .brightness(100) // default: 255
                 .build(),
         )
