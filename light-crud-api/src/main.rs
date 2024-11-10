@@ -38,6 +38,7 @@ async fn main() {
             _ = terminate.recv() => println!("Received SIGTERM, shutting down..."),
         }
         shutdown_notify_clone.notify_one();
+        println!("Sent Notify Command")
     });
 
     if config.debug.enable_webserver {
@@ -47,7 +48,7 @@ async fn main() {
             tokio::net::TcpListener::bind(format!("{}:{}", config.web.interface, config.web.port))
                 .await
                 .unwrap();
-        tokio::spawn(async move {
+        let _handle = tokio::task::spawn_blocking(|| async move {
             axum::serve(listener, app.into_make_service())
                 .with_graceful_shutdown(wait_for_shutdown(shutdown_notify))
                 .await
@@ -64,6 +65,6 @@ async fn main() {
     println!("After lights");
 
     // tokio::time::sleep(Duration::from_millis(50)).await;
-    shutdown_notify_main_loop.notified().await;
+    wait_for_shutdown(shutdown_notify_main_loop).await;
     println!("Ending Program ... ")
 }
