@@ -4,3 +4,8 @@ file_path = "/home/joel/GH/Lights/db/sqlite.db"
 [web]
 port = 3000
 interface = "0.0.0.0"
+
+[debug]
+on_raspberry_pi = false
+enable_webserver = false
+enable_lights = false

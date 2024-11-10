@@ -11,10 +11,15 @@ async fn main() {
     let config = read_or_create_config(path).unwrap();
     println!("{config:?}");
 
-    let app = database::initialize::setup(&config).await;
+    if config.debug.enable_webserver {
+        let app = database::initialize::setup(&config).await;
 
-    let listener = tokio::net::TcpListener::bind(format!("{}:{}", config.web.interface, config.web.port))
-        .await
-        .unwrap();
-    axum::serve(listener, app).await.unwrap();
+        let listener = tokio::net::TcpListener::bind(format!("{}:{}", config.web.interface, config.web.port))
+            .await
+            .unwrap();
+        axum::serve(listener, app).await.unwrap();
+    }
+    if config.debug.enable_lights{
+        let controller = lights::controller::setup();
+    }
 }

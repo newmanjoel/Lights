@@ -8,11 +8,18 @@ use toml;
 pub struct Config {
     pub database: DatabaseConfig,
     pub web: WebConfig,
+    pub debug: DebugConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DatabaseConfig {
     pub file_path: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DebugConfig {
+    pub on_raspberry_pi: bool,
+    pub enable_webserver:bool,
+    pub enable_lights:bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -29,11 +36,21 @@ impl Default for WebConfig {
         }
     }
 }
+impl Default for DebugConfig {
+    fn default() -> Self {
+        DebugConfig {
+            on_raspberry_pi: false,
+            enable_webserver: false,
+            enable_lights: false,
+        }
+    }
+}
 impl Default for Config {
     fn default() -> Self {
         Config {
             database: DatabaseConfig::default(),
             web: WebConfig::default(),
+            debug: DebugConfig::default(),
         }
     }
 }

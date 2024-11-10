@@ -163,3 +163,4 @@ cython_debug/
 
 db/*
 light-crud-api/config.toml
+db/sqlite.db

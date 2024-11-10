@@ -2,20 +2,20 @@ use rs_ws281x::ControllerBuilder;
 use rs_ws281x::ChannelBuilder;
 use rs_ws281x::StripType;
 
-fn setup() {
+pub fn setup() -> rs_ws281x::Controller{
     // Construct a single channel controller. Note that the
     // Controller is initialized by default and is cleaned up on drop
 
-    let mut controller = ControllerBuilder::new()
+    let mut controller: rs_ws281x::Controller = ControllerBuilder::new()
         .freq(800_000)
         .dma(10)
         .channel(
             0, // Channel Index
             ChannelBuilder::new()
-                .pin(12) // GPIO 12 = PWM0
+                .pin(12) // GPIO 12 = PWM0 // Default was 10
                 .count(250) // Number of LEDs
                 .strip_type(StripType::Ws2811Grb)
-                .brightness(255) // default: 255
+                .brightness(100) // default: 255
                 .build(),
         )
         .build()
@@ -28,4 +28,5 @@ fn setup() {
     }
 
     controller.render().unwrap();
+    return controller;
 }
