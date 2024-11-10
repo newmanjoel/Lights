@@ -1,8 +1,8 @@
 import requests
 import time
 
-base_url = "http://localhost:3000"
-# base_url = "http://192.168.2.39:3000"
+# base_url = "http://localhost:3000"
+base_url = "http://192.168.2.39:3000"
 
 def delete_range_of_locations(low:int, high:int) ->None:
     for i in range(low, high):

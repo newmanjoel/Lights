@@ -1,5 +1,7 @@
 mod database;
 
+mod lights;
+
 mod config;
 use config::read_or_create_config;
 
