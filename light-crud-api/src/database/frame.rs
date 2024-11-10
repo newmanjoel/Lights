@@ -31,8 +31,13 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn new() -> Self{
-        Frame { id: -1, parent_id: -1, frame_id: -1, data: "[]".to_owned() }
+    pub fn new() -> Self {
+        Frame {
+            id: -1,
+            parent_id: -1,
+            frame_id: -1,
+            data: "[]".to_owned(),
+        }
     }
 
     fn extract_from_dict(dict: &Value) -> std::result::Result<Self, Value> {
