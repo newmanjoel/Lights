@@ -42,29 +42,30 @@ async fn main() {
             tokio::net::TcpListener::bind(format!("{}:{}", config.web.interface, config.web.port))
                 .await
                 .unwrap();
-        let _handle = tokio::task::spawn_blocking(|| async move {
-            axum::serve(listener, app.into_make_service())
-                .with_graceful_shutdown(wait_for_shutdown(shutdown_notify_web_server.notify))
-                .await
-                .unwrap();
-        })
-        .await;
+        let _handle = tokio::spawn(async move {
+        axum::serve(listener, app.into_make_service())
+            .with_graceful_shutdown(wait_for_shutdown(shutdown_notify_web_server.notify))
+            .await
+            .unwrap();
+        });
+        // .await
+        // .expect("Webserver errored out");
         println!("Started Webserver ... ");
     } else {
         println!("Not Starting Webserver");
     }
     if config.debug.enable_lights {
         println!("Starting Controller loop ... ");
-        let _controller_loop = tokio::task::spawn_blocking(|| async move {
+        let _loop_handle = tokio::spawn(async move {
+            println!("in the controller thread");
             let mut controller = lights::controller::setup();
             let mut test_frame = Frame::new();
-            println!("in the controller thread");
             while shutdown_notify_controller_loop.is_notified() {
                 println!("inside loop");
                 test_frame.data = String::from("[16711680,255, 65280]");
                 lights::controller::write_frame(&test_frame, &mut controller);
             }
-        }).await;
+        });
         println!("Started Controller Loop ...");
     } else {
         println!("Not Starting Lighting Controller");
