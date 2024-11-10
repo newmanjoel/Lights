@@ -11,7 +11,7 @@ async fn main() {
 
     let app = database::initialize::setup(&config).await;
 
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.web.port))
+    let listener = tokio::net::TcpListener::bind(format!("{}:{}", config.web.interface, config.web.port))
         .await
         .unwrap();
     axum::serve(listener, app).await.unwrap();

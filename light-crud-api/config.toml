@@ -3,3 +3,4 @@ file_path = "/home/joel/GH/Lights/db/sqlite.db"
 
 [web]
 port = 3000
+interface = "0.0.0.0"
