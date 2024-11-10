@@ -23,7 +23,7 @@ async fn main() {
         axum::serve(listener, app).await.unwrap();
     }
     if config.debug.enable_lights {
-        let mut controller = lights::controller::setup();
+        let mut controller = lights::controller::setup(&config);
         let mut test_frame = Frame::new();
         test_frame.data = String::from("[255, 65280, 16711680]");
         lights::controller::write_frame(&test_frame, &mut controller);
