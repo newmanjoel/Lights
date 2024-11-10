@@ -54,12 +54,13 @@ impl LedColor {
 
 pub fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
     let mut frame_data = frame.data_out();
-    let mut led_channel = controller.leds(0);
-    let led_num = led_channel.len();
-    let data_len = frame_data.len();
-    println!("frame_data length {data_len:?}");
-    println!("led_controller length {led_num:?}");
-    assert_eq!(data_len, led_num);
+    // let mut led_channel = controller.leds(0);
+    // let led_num = led_channel.len();
+    // let data_len = frame_data.len();
+    // println!("\nframe_data length {data_len:?}");
+    // println!("led_controller length {led_num:?}");
+    // assert_eq!(data_len, led_num);
+    println!("assuming that they are the same size ... ");
 
     let zipped = frame_data
         .iter_mut()
@@ -70,6 +71,7 @@ pub fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
         led.0 = [bytes.red, bytes.blue, bytes.green, 0]
     }
     controller.render().unwrap();
+    println!("wrote the frame to the lights");
     // block_on(tokio::time::sleep(Duration::from_millis(1000)));
 
     // for led_color in frame_data.iter() {

@@ -30,6 +30,7 @@ pub struct Frame {
     pub data: String,
 }
 
+#[allow(dead_code)]
 impl Frame {
     pub fn new() -> Self {
         Frame {

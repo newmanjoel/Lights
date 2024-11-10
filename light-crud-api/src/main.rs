@@ -73,7 +73,7 @@ async fn main() {
             // println!("inside loop");
             // println!("{shutdown_notify_controller_loop:?}");
             match timeout(Duration::from_secs(10), recver.recv()).await {
-                Err(_) => print!("."),
+                Err(_) => println!("."),
                 Ok(value) => match value {
                     None => println!("Error on the frame receive"),
                     Some(frame) => lights::controller::write_frame(&frame, &mut controller),
