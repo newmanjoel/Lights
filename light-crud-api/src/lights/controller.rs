@@ -52,6 +52,7 @@ impl LedColor {
     }
 }
 
+#[allow(unused_mut)]
 pub fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
     let mut frame_data = frame.data_out();
     // let mut led_channel = controller.leds(0);
@@ -62,27 +63,27 @@ pub fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
     // assert_eq!(data_len, led_num);
     println!("assuming that they are the same size ... ");
 
-    let zipped = frame_data
-        .iter_mut()
-        .zip(controller.leds_mut(0).iter_mut().map(|e| LedColor::new(e)));
+    // let zipped = frame_data
+    //     .iter_mut()
+    //     .zip(controller.leds_mut(0).iter_mut().map(|e| LedColor::new(e)));
 
-    for (led_color, mut led) in zipped {
-        let bytes = converter::ByteRGB::from_u32(*led_color);
-        led.0 = [bytes.red, bytes.blue, bytes.green, 0]
-    }
-    controller.render().unwrap();
-    println!("wrote the frame to the lights");
+    // for (led_color, mut led) in zipped {
+    //     let bytes = converter::ByteRGB::from_u32(*led_color);
+    //     led.0 = [bytes.red, bytes.blue, bytes.green, 0]
+    // }
+    // controller.render().unwrap();
+    // println!("wrote the frame to the lights");
     // block_on(tokio::time::sleep(Duration::from_millis(1000)));
 
-    // for led_color in frame_data.iter() {
-    //     let bytes = converter::ByteRGB::from_u32(*led_color);
-    //     println!("{bytes:?}");
+    for (led_color, mut led) in frame_data.iter().zip(controller.leds_mut(0).iter_mut()) {
+        let bytes = converter::ByteRGB::from_u32(*led_color);
+        println!("{bytes:?}");
+        *led = [bytes.red, bytes.green, bytes.blue, 0];
 
-    //     let leds = controller.leds_mut(0);
-    //     for mut led in leds.iter_mut().map(|e| LedColor::new(e)) {
-    //         led.0 = [bytes.red, bytes.green, bytes.blue, 0];
-    //         // *led = [bytes.red, bytes.green, bytes.blue, 0];
-    //     }
-
-    // }
+        // // let leds = controller.leds_mut(0);
+        // for mut led in leds.iter_mut(){
+        //     // led.0 = [bytes.red, bytes.green, bytes.blue, 0];
+        // }
+    }
+    controller.render().unwrap();
 }
