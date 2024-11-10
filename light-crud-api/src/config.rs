@@ -1,4 +1,3 @@
-use rs_ws281x::StripType;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Write};
@@ -21,7 +20,6 @@ pub struct DebugConfig {
     pub on_raspberry_pi: bool,
     pub enable_webserver: bool,
     pub enable_lights: bool,
-    pub strip_type: StripType,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -44,7 +42,6 @@ impl Default for DebugConfig {
             on_raspberry_pi: false,
             enable_webserver: false,
             enable_lights: false,
-            strip_type: StripType::Ws2811Bgr,
         }
     }
 }

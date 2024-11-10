@@ -53,7 +53,11 @@ def create_animation() -> None:
         return 
     print(f"{frame_response.json()=}")
 
+def from_u32(value:int) -> list:
+    return [(value >> 16) & 0xFF, (value>>8) & 0xFF, value & 0xFF]
 
+def to_u32(red, green, blue) -> int:
+    return (red << 16) + (green << 8) + blue
 
 def main() -> None:
     # call_crud_endpoints(base_url=base_url)
