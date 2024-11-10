@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use rs_ws281x::ChannelBuilder;
 use rs_ws281x::ControllerBuilder;
-use rs_ws281x::StripType;
+// use rs_ws281x::StripType;
 
 use super::converter;
 use crate::config::Config;
@@ -40,11 +40,10 @@ pub fn setup(config: &Config) -> rs_ws281x::Controller {
 pub async fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
     let frame_data = frame.data_out();
 
-    
     for led_color in frame_data.iter() {
         let bytes = converter::ByteRGB::from_u32(*led_color);
         println!("{bytes:?}");
-        
+
         let leds = controller.leds_mut(0);
         for led in leds.into_iter() {
             *led = [bytes.red, bytes.green, bytes.blue, 0];
