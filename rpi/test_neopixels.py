@@ -22,9 +22,9 @@ lighting = [orange] * led_num
 
 clamp = lambda n, minn, maxn: max(min(maxn, n), minn)
 
-fade_amount:int = 20
+fade_amount:int = 50
 multi_amount:float = 255.0 / fade_amount
-fps:float = 30.0
+fps:float = 24.0
 
 
 def rgb_to_hex(r, g, b):

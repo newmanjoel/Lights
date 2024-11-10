@@ -54,8 +54,12 @@ impl LedColor {
 
 pub fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
     let mut frame_data = frame.data_out();
-
-    assert_eq!(frame_data.len(), controller.leds(0).len());
+    let mut led_channel = controller.leds(0);
+    let led_num = led_channel.len();
+    let data_len = frame_data.len();
+    println!("frame_data length {data_len:?}");
+    println!("led_controller length {led_num:?}");
+    assert_eq!(data_len, led_num);
 
     let zipped = frame_data
         .iter_mut()
