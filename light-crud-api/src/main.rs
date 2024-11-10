@@ -26,17 +26,13 @@ async fn main() {
     println!("{config:?}");
 
     let notifier = NotifyChecker::new();
-
-    let signal_notifier = notifier.clone();
-
-    // let shutdown_notify = Arc::new(Notify::new());
-    // let shutdown_notify_clone = shutdown_notify.clone();
+    let shutdown_signal_notifier = notifier.clone();
     let shutdown_notify_web_server = notifier.clone();
     let shutdown_notify_main_loop = notifier.clone();
     let shutdown_notify_controller_loop = notifier.clone();
 
     // Spawn a task to listen for a shutdown signal (e.g., Ctrl+C)
-    tokio::spawn(thread_utils::wait_for_signals(signal_notifier));
+    tokio::spawn(thread_utils::wait_for_signals(shutdown_signal_notifier));
 
     if config.debug.enable_webserver {
         let app = database::initialize::setup(&config).await;

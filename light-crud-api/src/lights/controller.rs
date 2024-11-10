@@ -46,33 +46,37 @@ impl LedColor {
     fn new(value: &mut [u8; 4]) -> Self {
         return LedColor(*value);
     }
-    
+
     fn red(&self) -> u8 {
         return self.0[0];
     }
 }
 
 pub fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
-    let frame_data = frame.data_out();
+    let mut frame_data = frame.data_out();
 
     assert_eq!(frame_data.len(), controller.leds(0).len());
 
-    // let mut zipped: Vec<u32, [u8;4]> = frame_data.iter().zip(controller.leds_mut(0).iter_mut()).collect();
+    let zipped = frame_data
+        .iter_mut()
+        .zip(controller.leds_mut(0).iter_mut().map(|e| LedColor::new(e)));
 
-    // for (led_color, led LedColor) in zipped{
+    for (led_color, mut led) in zipped {
+        let bytes = converter::ByteRGB::from_u32(*led_color);
+        led.0 = [bytes.red, bytes.blue, bytes.green, 0]
+    }
+    controller.render().unwrap();
+    block_on(tokio::time::sleep(Duration::from_millis(1000)));
+
+    // for led_color in frame_data.iter() {
+    //     let bytes = converter::ByteRGB::from_u32(*led_color);
+    //     println!("{bytes:?}");
+
+    //     let leds = controller.leds_mut(0);
+    //     for mut led in leds.iter_mut().map(|e| LedColor::new(e)) {
+    //         led.0 = [bytes.red, bytes.green, bytes.blue, 0];
+    //         // *led = [bytes.red, bytes.green, bytes.blue, 0];
+    //     }
 
     // }
-
-    for led_color in frame_data.iter() {
-        let bytes = converter::ByteRGB::from_u32(*led_color);
-        println!("{bytes:?}");
-
-        let leds = controller.leds_mut(0);
-        for mut led in leds.iter_mut().map(|e| LedColor::new(e)) {
-            led.0 = [bytes.red, bytes.green, bytes.blue, 0];
-            // *led = [bytes.red, bytes.green, bytes.blue, 0];
-        }
-        controller.render().unwrap();
-        block_on(tokio::time::sleep(Duration::from_millis(1000)));
-    }
 }
