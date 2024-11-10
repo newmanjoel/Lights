@@ -1,5 +1,7 @@
-use axum::extract;
 use axum::{
+    extract,
+    http::StatusCode,
+    response::{IntoResponse, Response},
     routing::{delete, get, post, put},
     Router,
 };
@@ -88,7 +90,7 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
 pub async fn get_frame_id(
     extract::Path(frame_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
-) -> String {
+) -> Response {
     let frame_results = sqlx::query_as::<_, Frame>(GET_SQL_STATEMENT)
         .bind(frame_id)
         .fetch_one(&state.db)
@@ -96,14 +98,14 @@ pub async fn get_frame_id(
     let data = match frame_results {
         Ok(value) => value,
         Err(error) => {
-            return json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()
+            return (StatusCode::BAD_REQUEST, json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()).into_response()
         }
     };
 
-    return serde_json::to_string(&data).unwrap();
+    return serde_json::to_string(&data).unwrap().into_response();
 }
 
-pub async fn get_all_frame(extract::State(state): extract::State<Arc<AppState>>) -> String {
+pub async fn get_all_frame(extract::State(state): extract::State<Arc<AppState>>) -> Response {
     let frame_results =
         sqlx::query_as::<_, Frame>("SELECT id, parent_id, frame_id, data FROM Frames")
             .fetch_all(&state.db)
@@ -111,32 +113,32 @@ pub async fn get_all_frame(extract::State(state): extract::State<Arc<AppState>>)
     let data = match frame_results {
         Ok(value) => value,
         Err(error) => {
-            return json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()
+            return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()).into_response()
         }
     };
 
-    return serde_json::to_string(&data).unwrap();
+    return serde_json::to_string(&data).unwrap().into_response();
 }
 
 pub async fn post_frame(
     extract::State(state): extract::State<Arc<AppState>>,
     payload: String,
-) -> String {
+) -> Response {
     let json_payload: Value = match serde_json::from_str(&payload) {
         Ok(result) => result,
         Err(error) => {
-            return json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()
+            return (StatusCode::BAD_REQUEST, json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()).into_response()
         }
     };
 
     let frame_dict = match json_payload.get("frame") {
         Some(value) => value,
-        None => return json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
+        None => return (StatusCode::BAD_REQUEST, json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string()).into_response(),
     };
 
     let frame = match Frame::extract_from_dict(&frame_dict) {
         Ok(value) => value,
-        Err(error) => return error.to_string(),
+        Err(error) => return (StatusCode::BAD_REQUEST, error.to_string()).into_response(),
     };
 
     let frame_results = sqlx::query(INSERT_SQL_STATEMENT)
@@ -147,8 +149,8 @@ pub async fn post_frame(
         .await;
 
     match frame_results {
-        Ok(stats) => return json!({"id": stats.last_insert_rowid()}).to_string(),
-        Err(stats) => return json!({"error": stats.to_string()}).to_string(),
+        Ok(stats) => return json!({"id": stats.last_insert_rowid()}).to_string().into_response(),
+        Err(stats) => return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error": stats.to_string()}).to_string()).into_response(),
     };
 }
 
@@ -156,22 +158,22 @@ pub async fn put_frame_id(
     extract::Path(frame_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
     payload: String,
-) -> String {
+) -> Response {
     let json_payload: Value = match serde_json::from_str(&payload) {
         Ok(result) => result,
         Err(error) => {
-            return json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()
+            return (StatusCode::BAD_REQUEST, json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()).into_response()
         }
     };
 
     let frame_dict = match json_payload.get("frame") {
         Some(value) => value,
-        None => return json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
+        None => return (StatusCode::BAD_REQUEST, json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string()).into_response(),
     };
 
     let mut frame: Frame = match Frame::extract_from_dict(frame_dict) {
         Ok(value) => value,
-        Err(value) => return value.to_string(),
+        Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
     };
     frame.id = frame_id;
 
@@ -184,15 +186,15 @@ pub async fn put_frame_id(
         .await;
 
     match frame_results {
-        Ok(value) => return json!({"result": format!("{value:?}")}).to_string(),
-        Err(value) => return json!({"error":format!("{value:?}")}).to_string(),
+        Ok(value) => return json!({"result": format!("{value:?}")}).to_string().into_response(),
+        Err(value) => return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":format!("{value:?}")}).to_string()).into_response(),
     };
 }
 
 pub async fn delete_frame_id(
     extract::Path(frame_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
-) -> String {
+) -> Response {
     let frame_results = sqlx::query(DELETE_SQL_STATEMENT)
         .bind(frame_id)
         .execute(&state.db)
@@ -201,9 +203,9 @@ pub async fn delete_frame_id(
     let data = match frame_results {
         Ok(value) => value,
         Err(error) => {
-            return json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()
+            return (StatusCode::BAD_REQUEST, json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()).into_response();
         }
     };
 
-    return json!({"value": format!("{data:?}")}).to_string();
+    return json!({"value": format!("{data:?}")}).to_string().into_response();
 }

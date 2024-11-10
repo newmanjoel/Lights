@@ -1,5 +1,7 @@
-use axum::extract;
 use axum::{
+    extract,
+    http::StatusCode,
+    response::{IntoResponse, Response},
     routing::{delete, get, post, put},
     Router,
 };
@@ -13,7 +15,7 @@ use crate::database::initialize::AppState;
 
 const EXAMPLE_DATA: &str = r#"{"location":{"id":1,"x":24.0, "y": 12.0}}"#;
 const GET_SQL_STATEMENT: &str = "SELECT id, x, y FROM LED_Location WHERE id = ? LIMIT 1";
-const DELETE_SQL_STATEMENT: &str = "DELETE FROM LED_Location WHERE id = ? LIMIT 1";
+const DELETE_SQL_STATEMENT: &str = "DELETE FROM LED_Location WHERE id = ?";
 const UPDATE_SQL_STATEMENT: &str = "UPDATE LED_Location SET x = ?, y= ? WHERE id = ?";
 const INSERT_SQL_STATEMENT: &str = "INSERT INTO LED_Location (x, y) Values(?, ?)";
 
@@ -54,7 +56,7 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
         .route("/:id", delete(delete_location_id))
         .with_state(state);
 
-    index.insert("/location", "POST");
+    index.insert("/location", "GET,POST");
     index.insert("/location/:id", "GET,PUT,DELETE");
     return app;
 }
@@ -62,7 +64,7 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
 pub async fn get_location_id(
     extract::Path(frame_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
-) -> String {
+) -> Response {
     let frame_results = sqlx::query_as::<_, LedLocation>(GET_SQL_STATEMENT)
         .bind(frame_id)
         .fetch_one(&state.db)
@@ -70,55 +72,91 @@ pub async fn get_location_id(
 
     let data: String = match frame_results {
         Ok(value) => serde_json::to_string(&value).unwrap(),
-        Err(value) => return json!({"error": value.to_string()}).to_string(),
+        Err(value) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error": value.to_string()}).to_string(),
+            )
+                .into_response()
+        }
     };
-    return data;
+    return data.into_response();
 }
-pub async fn get_all_location(extract::State(state): extract::State<Arc<AppState>>) -> String {
+pub async fn get_all_location(extract::State(state): extract::State<Arc<AppState>>) -> Response {
     let frame_results = sqlx::query_as::<_, LedLocation>("SELECT id, x, y FROM LED_Location")
         .fetch_all(&state.db)
         .await;
 
-    let data: String = match frame_results {
-        Ok(value) => serde_json::to_string(&value).unwrap(),
-        Err(value) => return json!({"error": value.to_string()}).to_string(),
+    // let data: String = match frame_results {
+    //     Ok(value) => serde_json::to_string(&value).unwrap(),
+    //     Err(value) => return json!({"error": value.to_string()}).to_string(),
+    // };
+    match frame_results {
+        Ok(value) => return serde_json::to_string(&value).unwrap().into_response(),
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": value.to_string()}).to_string(),
+            )
+                .into_response()
+        }
     };
-    return data;
 }
 
 pub async fn delete_location_id(
     extract::Path(frame_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
-) -> String {
+) -> Response {
     let frame_results = sqlx::query(DELETE_SQL_STATEMENT)
         .bind(frame_id)
         .execute(&state.db)
-        .await
-        .unwrap();
+        .await;
 
-    return json!({"last insert rowid":frame_results.last_insert_rowid()}).to_string();
+    let data = match frame_results {
+        Ok(value) => value,
+        Err(error) => {
+            let return_str =
+                json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string();
+            println!("{}", return_str);
+            return (StatusCode::BAD_REQUEST, return_str).into_response();
+        }
+    };
+
+    return json!({"last insert rowid":data.last_insert_rowid()})
+        .to_string()
+        .into_response();
 }
 
 pub async fn put_location_id(
     extract::Path(frame_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
     payload: String,
-) -> String {
+) -> Response {
     let json_payload: Value = match serde_json::from_str(&payload) {
         Ok(result) => result,
         Err(error) => {
-            return json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response();
         }
     };
 
     let frame_dict = match json_payload.get("frame") {
         Some(value) => value,
-        None => return json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response()
+        }
     };
 
     let mut led: LedLocation = match LedLocation::extract_from_dict(frame_dict) {
         Ok(value) => value,
-        Err(value) => return value.to_string(),
+        Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
     };
     led.id = frame_id;
 
@@ -130,30 +168,50 @@ pub async fn put_location_id(
         .await;
 
     match led_results {
-        Ok(value) => return json!({"result": format!("{value:?}")}).to_string(),
-        Err(value) => return json!({"error":format!("{value:?}")}).to_string(),
+        Ok(value) => {
+            return json!({"result": format!("{value:?}")})
+                .to_string()
+                .into_response()
+        }
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error":format!("{value:?}")}).to_string(),
+            )
+                .into_response()
+        }
     };
 }
 
 pub async fn post_location(
     extract::State(state): extract::State<Arc<AppState>>,
     payload: String,
-) -> String {
+) -> Response {
     let json_payload: Value = match serde_json::from_str(&payload) {
         Ok(result) => result,
         Err(error) => {
-            return json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response()
         }
     };
 
     let frame_dict = match json_payload.get("location") {
         Some(value) => value,
-        None => return json!({"error":"location not found", "example":EXAMPLE_DATA}).to_string(),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error":"location not found", "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response()
+        }
     };
 
     let led: LedLocation = match LedLocation::extract_from_dict(frame_dict) {
         Ok(value) => value,
-        Err(value) => return value.to_string(),
+        Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
     };
 
     let led_results = sqlx::query(INSERT_SQL_STATEMENT)
@@ -163,7 +221,17 @@ pub async fn post_location(
         .await;
 
     match led_results {
-        Ok(value) => return json!({"result": format!("{value:?}")}).to_string(),
-        Err(value) => return json!({"error":format!("{value:?}")}).to_string(),
+        Ok(value) => {
+            return json!({"result": format!("{value:?}")})
+                .to_string()
+                .into_response()
+        }
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error":format!("{value:?}")}).to_string(),
+            )
+                .into_response()
+        }
     };
 }

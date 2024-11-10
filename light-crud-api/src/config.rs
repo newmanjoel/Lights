@@ -18,11 +18,15 @@ pub struct DatabaseConfig {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WebConfig {
     pub port: i32,
+    pub interface: String,
 }
 
 impl Default for WebConfig {
     fn default() -> Self {
-        WebConfig { port: 3000 }
+        WebConfig {
+            port: 3000,
+            interface: "0.0.0.0".to_string(),
+        }
     }
 }
 impl Default for Config {

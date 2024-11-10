@@ -1,10 +1,38 @@
+use axum::routing::get;
+use axum::Router;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
 use sqlx::{query, Error};
+use std::collections::HashMap;
 use std::path::Path;
+
+use crate::config::Config;
+
+use super::{frame, frame_data, location};
 
 #[derive(Clone, Debug)]
 pub struct AppState {
     pub db: SqlitePool,
+}
+
+pub async fn setup(config: &Config) -> Router {
+    let mut index: HashMap<&'static str, &str> = HashMap::new();
+
+    let filepath = Path::new(config.database.file_path.as_str());
+    let pool = get_or_create_sqlite_database(filepath).await.unwrap();
+    let state: std::sync::Arc<AppState> = std::sync::Arc::new(AppState { db: pool });
+    let frame_routes = frame::router(&mut index, state.clone());
+    let frame_data_routes = frame_data::router(&mut index, state.clone());
+    let location_routes = location::router(&mut index, state.clone());
+
+    let app: Router = Router::new()
+        .route(
+            "/",
+            get(|| async move { return serde_json::to_string_pretty(&index).unwrap().to_string() }),
+        )
+        .nest("/frame", frame_routes)
+        .nest("/frame_data", frame_data_routes)
+        .nest("/location", location_routes);
+    return app;
 }
 
 pub async fn get_or_create_sqlite_database(filepath: &Path) -> Result<SqlitePool, Error> {
