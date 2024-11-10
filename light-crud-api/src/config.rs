@@ -44,7 +44,7 @@ impl Default for DebugConfig {
             on_raspberry_pi: false,
             enable_webserver: false,
             enable_lights: false,
-            strip_type: StripType::Ws2811Rbg
+            strip_type: StripType::Ws2811Bgr
         }
     }
 }

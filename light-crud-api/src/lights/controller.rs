@@ -27,8 +27,9 @@ pub fn setup(config: &Config) -> rs_ws281x::Controller {
 
     let leds = controller.leds_mut(0);
 
+    // thinking the format is Red, Green, Blue
     for led in leds.into_iter() {
-        *led = [0, 0, 255, 0];
+        *led = [0, 255, 0, 0];
     }
     controller.render().unwrap();
     return controller;
