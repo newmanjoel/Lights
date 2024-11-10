@@ -229,8 +229,10 @@ pub async fn post_frame_data(
 
     match frame_results {
         Ok(stats) => {
-            return json!({"id": stats.last_insert_rowid()})
-                .to_string()
+            return (
+                StatusCode::OK,
+                json!({"id": stats.last_insert_rowid()}).to_string(),
+            )
                 .into_response()
         }
         Err(stats) => {

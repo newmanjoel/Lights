@@ -12,6 +12,7 @@ use super::{frame, frame_data, location};
 #[derive(Clone, Debug)]
 pub struct AppState {
     pub db: SqlitePool,
+    pub send_to_controller: tokio::sync::mpsc::Sender<frame::Frame>,
 }
 
 pub async fn setup(config: &Config) -> Router {
@@ -19,7 +20,10 @@ pub async fn setup(config: &Config) -> Router {
 
     let filepath = Path::new(config.database.file_path.as_str());
     let pool = get_or_create_sqlite_database(filepath).await.unwrap();
-    let state: std::sync::Arc<AppState> = std::sync::Arc::new(AppState { db: pool });
+    let state: std::sync::Arc<AppState> = std::sync::Arc::new(AppState {
+        db: pool,
+        send_to_controller: config.sending_channel.clone(),
+    });
     let frame_routes = frame::router(&mut index, state.clone());
     let frame_data_routes = frame_data::router(&mut index, state.clone());
     let location_routes = location::router(&mut index, state.clone());

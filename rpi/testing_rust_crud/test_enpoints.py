@@ -1,8 +1,8 @@
 import requests
 import time
 
-# base_url = "http://localhost:3000"
-base_url = "http://192.168.2.39:3000"
+base_url = "http://localhost:3000"
+# base_url = "http://192.168.2.39:3000"
 
 def delete_range_of_locations(low:int, high:int) ->None:
     for i in range(low, high):
@@ -45,12 +45,17 @@ def create_animation() -> None:
     create_response = requests.post(f"{base_url}/frame_data", json={"frame_data": {"name":"animation_test", "speed":24}})
     if create_response.status_code != 200:
         print("ERROR:", create_response.json())
-        return 
+        # return 
     working_id: int= create_response.json().get("id", 1)
-    frame_response = requests.post(f"{base_url}/frame", json={"frame": {"frame_id":1,"parent_id":working_id,"data":str([155]*250)}})
+    print(f"{create_response.json()=}")
+    working_arr = []
+    for led_number in range(250):
+        working_arr.append(to_u32(led_number,0,0))
+    
+    frame_response = requests.post(f"{base_url}/frame", json={"frame": {"frame_id":1,"parent_id":working_id,"data":str(working_arr)}})
     if frame_response.status_code != 200:
         print("ERROR:", create_response.json())
-        return 
+        # return 
     print(f"{frame_response.json()=}")
 
 def from_u32(value:int) -> list:

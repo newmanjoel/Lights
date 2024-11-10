@@ -7,7 +7,7 @@ use axum::{
 };
 use std::{collections::HashMap, sync::Arc};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use sqlx::FromRow;
@@ -22,7 +22,7 @@ const UPDATE_SQL_STATEMENT: &str =
     "UPDATE Frames SET parent_id = ?, frame_id= ?, data= ? WHERE id = ?";
 const INSERT_SQL_STATEMENT: &str = "INSERT INTO Frames (parent_id, frame_id, data) Values(?, ?, ?)";
 
-#[derive(Clone, FromRow, Debug, Serialize)]
+#[derive(Clone, FromRow, Debug, Serialize, Deserialize)]
 pub struct Frame {
     pub id: i32,
     pub parent_id: i64,
@@ -94,10 +94,12 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
         .route("/:id", get(get_frame_id))
         .route("/:id", put(put_frame_id))
         .route("/:id", delete(delete_frame_id))
+        .route("/show/:id", get(show_frame_id))
         .with_state(state);
 
     index.insert("/frame", "GET,POST");
     index.insert("/frame/:id", "GET,PUT,DELETE");
+    index.insert("/frame/show/:id", "GET");
     return app;
 }
 
@@ -119,6 +121,32 @@ pub async fn get_frame_id(
                 .into_response()
         }
     };
+
+    return serde_json::to_string(&data).unwrap().into_response();
+}
+pub async fn show_frame_id(
+    extract::Path(frame_id): extract::Path<i32>,
+    extract::State(state): extract::State<Arc<AppState>>,
+) -> Response {
+    let frame_results = sqlx::query_as::<_, Frame>(GET_SQL_STATEMENT)
+        .bind(frame_id)
+        .fetch_one(&state.db)
+        .await;
+    let data = match frame_results {
+        Ok(value) => value,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response()
+        }
+    };
+    state
+        .send_to_controller
+        .send(data.clone())
+        .await
+        .expect("Could not send data");
 
     return serde_json::to_string(&data).unwrap().into_response();
 }

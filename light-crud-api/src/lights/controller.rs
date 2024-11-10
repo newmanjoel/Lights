@@ -70,7 +70,7 @@ pub fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
         led.0 = [bytes.red, bytes.blue, bytes.green, 0]
     }
     controller.render().unwrap();
-    block_on(tokio::time::sleep(Duration::from_millis(1000)));
+    // block_on(tokio::time::sleep(Duration::from_millis(1000)));
 
     // for led_color in frame_data.iter() {
     //     let bytes = converter::ByteRGB::from_u32(*led_color);
