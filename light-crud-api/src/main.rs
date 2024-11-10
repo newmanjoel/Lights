@@ -60,7 +60,7 @@ async fn main() {
             println!("in the controller thread");
             let mut controller = lights::controller::setup();
             let mut test_frame = Frame::new();
-            while shutdown_notify_controller_loop.is_notified() {
+            while !shutdown_notify_controller_loop.is_notified() {
                 println!("inside loop");
                 test_frame.data = String::from("[16711680,255, 65280]");
                 lights::controller::write_frame(&test_frame, &mut controller);
