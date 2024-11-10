@@ -72,9 +72,14 @@ pub async fn get_all_frame_data(extract::State(state): extract::State<Arc<AppSta
 
     match frame_results {
         Ok(value) => return serde_json::to_string(&value).unwrap().into_response(),
-        Err(value) => return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error": value.to_string()}).to_string()).into_response(),
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": value.to_string()}).to_string(),
+            )
+                .into_response()
+        }
     };
-    
 }
 
 pub async fn get_frame_data_id(
@@ -88,9 +93,14 @@ pub async fn get_frame_data_id(
 
     match frame_results {
         Ok(value) => return serde_json::to_string(&value).unwrap().into_response(),
-        Err(value) => return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error": value.to_string()}).to_string()).into_response(),
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": value.to_string()}).to_string(),
+            )
+                .into_response()
+        }
     };
-    
 }
 
 pub async fn delete_frame_data_id(
@@ -105,7 +115,9 @@ pub async fn delete_frame_data_id(
 
     // TODO: Make this handle errors
 
-    return json!({"last insert rowid":frame_results.last_insert_rowid()}).to_string().into_response();
+    return json!({"last insert rowid":frame_results.last_insert_rowid()})
+        .to_string()
+        .into_response();
 }
 
 pub async fn put_frame_data_id(
@@ -137,8 +149,18 @@ pub async fn put_frame_data_id(
         .await;
 
     match frame_results {
-        Ok(value) => return json!({"result": format!("{value:?}")}).to_string().into_response(),
-        Err(value) => return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":format!("{value:?}")}).to_string()).into_response(),
+        Ok(value) => {
+            return json!({"result": format!("{value:?}")})
+                .to_string()
+                .into_response()
+        }
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error":format!("{value:?}")}).to_string(),
+            )
+                .into_response()
+        }
     };
 }
 
@@ -206,7 +228,17 @@ pub async fn post_frame_data(
         .await;
 
     match frame_results {
-        Ok(stats) => return json!({"id": stats.last_insert_rowid()}).to_string().into_response(),
-        Err(stats) => return (StatusCode::BAD_REQUEST, json!({"error": stats.to_string()}).to_string()).into_response(),
+        Ok(stats) => {
+            return json!({"id": stats.last_insert_rowid()})
+                .to_string()
+                .into_response()
+        }
+        Err(stats) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error": stats.to_string()}).to_string(),
+            )
+                .into_response()
+        }
     };
 }

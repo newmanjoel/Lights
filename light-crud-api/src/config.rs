@@ -18,8 +18,8 @@ pub struct DatabaseConfig {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DebugConfig {
     pub on_raspberry_pi: bool,
-    pub enable_webserver:bool,
-    pub enable_lights:bool,
+    pub enable_webserver: bool,
+    pub enable_lights: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -31,6 +31,10 @@ pub struct Frame {
 }
 
 impl Frame {
+    pub fn new() -> Self{
+        Frame { id: -1, parent_id: -1, frame_id: -1, data: "[]".to_owned() }
+    }
+
     fn extract_from_dict(dict: &Value) -> std::result::Result<Self, Value> {
         let parent_id = match dict.get("parent_id") {
             Some(value) => match value.as_i64() {
@@ -71,6 +75,11 @@ impl Frame {
             data: data_str.to_owned(),
         });
     }
+
+    pub fn data_out(self: &Self) -> Vec<u32> {
+        let vec: Vec<u32> = serde_json::from_str(&self.data).unwrap_or(Vec::new());
+        return vec;
+    }
 }
 
 pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> Router {
@@ -98,7 +107,11 @@ pub async fn get_frame_id(
     let data = match frame_results {
         Ok(value) => value,
         Err(error) => {
-            return (StatusCode::BAD_REQUEST, json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()).into_response()
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response()
         }
     };
 
@@ -113,7 +126,11 @@ pub async fn get_all_frame(extract::State(state): extract::State<Arc<AppState>>)
     let data = match frame_results {
         Ok(value) => value,
         Err(error) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()).into_response()
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response()
         }
     };
 
@@ -127,13 +144,23 @@ pub async fn post_frame(
     let json_payload: Value = match serde_json::from_str(&payload) {
         Ok(result) => result,
         Err(error) => {
-            return (StatusCode::BAD_REQUEST, json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()).into_response()
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response()
         }
     };
 
     let frame_dict = match json_payload.get("frame") {
         Some(value) => value,
-        None => return (StatusCode::BAD_REQUEST, json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string()).into_response(),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response()
+        }
     };
 
     let frame = match Frame::extract_from_dict(&frame_dict) {
@@ -149,8 +176,18 @@ pub async fn post_frame(
         .await;
 
     match frame_results {
-        Ok(stats) => return json!({"id": stats.last_insert_rowid()}).to_string().into_response(),
-        Err(stats) => return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error": stats.to_string()}).to_string()).into_response(),
+        Ok(stats) => {
+            return json!({"id": stats.last_insert_rowid()})
+                .to_string()
+                .into_response()
+        }
+        Err(stats) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": stats.to_string()}).to_string(),
+            )
+                .into_response()
+        }
     };
 }
 
@@ -162,13 +199,23 @@ pub async fn put_frame_id(
     let json_payload: Value = match serde_json::from_str(&payload) {
         Ok(result) => result,
         Err(error) => {
-            return (StatusCode::BAD_REQUEST, json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()).into_response()
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response()
         }
     };
 
     let frame_dict = match json_payload.get("frame") {
         Some(value) => value,
-        None => return (StatusCode::BAD_REQUEST, json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string()).into_response(),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response()
+        }
     };
 
     let mut frame: Frame = match Frame::extract_from_dict(frame_dict) {
@@ -186,8 +233,18 @@ pub async fn put_frame_id(
         .await;
 
     match frame_results {
-        Ok(value) => return json!({"result": format!("{value:?}")}).to_string().into_response(),
-        Err(value) => return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":format!("{value:?}")}).to_string()).into_response(),
+        Ok(value) => {
+            return json!({"result": format!("{value:?}")})
+                .to_string()
+                .into_response()
+        }
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error":format!("{value:?}")}).to_string(),
+            )
+                .into_response()
+        }
     };
 }
 
@@ -203,9 +260,15 @@ pub async fn delete_frame_id(
     let data = match frame_results {
         Ok(value) => value,
         Err(error) => {
-            return (StatusCode::BAD_REQUEST, json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string()).into_response();
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response();
         }
     };
 
-    return json!({"value": format!("{data:?}")}).to_string().into_response();
+    return json!({"value": format!("{data:?}")})
+        .to_string()
+        .into_response();
 }
