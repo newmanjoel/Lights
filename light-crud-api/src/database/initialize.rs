@@ -7,8 +7,8 @@ use std::path::Path;
 
 use crate::config::Config;
 
-use super::{animation, frame, frame_data, location};
 use super::animation::Animation;
+use super::{animation, frame, frame_data, location};
 
 #[derive(Clone, Debug)]
 pub struct AppState {
@@ -38,7 +38,7 @@ pub async fn setup(config: &Config) -> Router {
         .nest("/frame", frame_routes)
         .nest("/frame_data", frame_data_routes)
         .nest("/location", location_routes)
-        .nest("/animation",animation_routes);
+        .nest("/animation", animation_routes);
 
     return app;
 }

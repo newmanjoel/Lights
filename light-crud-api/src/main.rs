@@ -78,15 +78,16 @@ async fn main() {
         while !looping_flag.load(Ordering::Relaxed) {
             // if there is a new animation, load it and set the relevant counters
             match timeout(Duration::from_millis(10), recver.recv()).await {
-                Err(_) => {},
+                Err(_) => {}
                 Ok(value) => match value {
                     None => println!("Error on the animation receive"),
                     Some(frame) => {
                         working_animation = frame;
                         working_index = 0;
                         working_frame_size = working_animation.frames.len();
-                        working_time = (1.0/working_animation.speed) as u64;
-                    },
+                        working_time = (1000.0 / working_animation.speed) as u64;
+                        println!("{working_time:?}ms vs {}", working_animation.speed);
+                    }
                 },
             }
 
@@ -95,8 +96,6 @@ async fn main() {
             working_index = working_index % working_frame_size;
             lights::controller::write_frame(working_frame, &mut controller);
             block_on(tokio::time::sleep(Duration::from_millis(working_time)));
-
-
         }
         // });
         println!("Stopping Controller Loop ...");

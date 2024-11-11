@@ -42,8 +42,8 @@ impl Frame {
             data: "[]".to_owned(),
         }
     }
-    pub fn new_with_color(color:u32, size:usize) -> Self {
-        let repeated =std::iter::repeat(color.to_string())
+    pub fn new_with_color(color: u32, size: usize) -> Self {
+        let repeated = std::iter::repeat(color.to_string())
             .take(size)
             .collect::<Vec<_>>()
             .join(",");
@@ -157,7 +157,7 @@ pub async fn show_frame_id(
                 .into_response()
         }
     };
-    let meta_frame =animation::get_frame_data(data.parent_id as i32, &state.db).unwrap();
+    let meta_frame = animation::get_frame_data(data.parent_id as i32, &state.db).unwrap();
 
     let mut ani = animation::Animation::from(meta_frame);
     ani.frames.push(data.clone());

@@ -11,6 +11,7 @@ pub struct NotifyChecker {
     pub notify: Arc<Notify>,
 }
 
+#[allow(dead_code)]
 impl NotifyChecker {
     pub fn new() -> Self {
         Self {

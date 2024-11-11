@@ -1,5 +1,5 @@
 use axum::{
-    extract::{State,Path},
+    extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{delete, get, post, put},
@@ -7,10 +7,9 @@ use axum::{
 };
 use std::{collections::HashMap, sync::Arc};
 
+use futures::executor::block_on;
 use serde::Serialize;
 use serde_json::{json, Value};
-use futures::executor::block_on;
-
 
 use sqlx::{FromRow, Pool, Sqlite};
 
@@ -29,11 +28,11 @@ const EXAMPLE_DATA: &str = r#"
     }
 }
 "#;
+
 const GET_SQL_STATEMENT: &str = "SELECT id, name, speed FROM Frame_Metadata WHERE id = ? LIMIT 1";
 const DELETE_SQL_STATEMENT: &str = "DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1";
 const UPDATE_SQL_STATEMENT: &str = "UPDATE Frame_Metadata SET name = ?, speed= ? WHERE id = ?";
 const INSERT_SQL_STATEMENT: &str = "INSERT INTO Frame_Metadata (name, speed) Values(?, ?)";
-
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Animation {
@@ -42,25 +41,24 @@ pub struct Animation {
     pub speed: f64,
     pub frames: Vec<Frame>,
 }
-
-impl Animation{
-    pub fn new() -> Self{
-        Animation{
+#[allow(dead_code)]
+impl Animation {
+    pub fn new() -> Self {
+        Animation {
             id: -1,
             name: String::from(""),
             speed: 24.0,
             frames: Vec::new(),
         }
     }
-    pub fn new_with_single_frame(color: u32) -> Self{
+    pub fn new_with_single_frame(color: u32) -> Self {
         let single_frame = Frame::new_with_color(color, 250);
-        Animation{
+        Animation {
             id: -1,
             name: String::from(""),
             speed: 24.0,
             frames: vec![single_frame],
         }
-
     }
 }
 
@@ -69,7 +67,7 @@ impl From<FrameMetadata> for Animation {
         Animation {
             id: a.id,
             name: a.name,
-            speed:a.speed,
+            speed: a.speed,
             frames: Vec::new(),
         }
     }
@@ -88,37 +86,39 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
     return app;
 }
 
-async fn post_animations(State(state): State<Arc<AppState>>,
-    payload: String,
-) -> Response {
+async fn post_animations(State(state): State<Arc<AppState>>, payload: String) -> Response {
     todo!()
 }
 
-pub fn get_frame_data(id: i32, db: &Pool<Sqlite>) -> Option<FrameMetadata>{
+pub fn get_frame_data(id: i32, db: &Pool<Sqlite>) -> Option<FrameMetadata> {
     let frame_results = block_on(
         sqlx::query_as::<_, FrameMetadata>(GET_SQL_STATEMENT)
-        .bind(id)
-        .fetch_one(db));
+            .bind(id)
+            .fetch_one(db),
+    );
 
-    match frame_results{
+    match frame_results {
         Ok(result) => return Some(result),
         Err(_) => return None,
     }
 }
 
-pub fn get_all_frames_of_parent(id: i32, db: &Pool<Sqlite>) -> Vec<Frame>{
+pub fn get_all_frames_of_parent(id: i32, db: &Pool<Sqlite>) -> Vec<Frame> {
     let frame_results = block_on(
-        sqlx::query(
-        "SELECT id, parent_id, frame_id, data FROM Frames WHERE parent_id = ?")
-        .bind(id)
-        .fetch_all(db));
-    
-    let sqlite_rows = match frame_results{
+        sqlx::query("SELECT id, parent_id, frame_id, data FROM Frames WHERE parent_id = ?")
+            .bind(id)
+            .fetch_all(db),
+    );
+
+    let sqlite_rows = match frame_results {
         Err(_) => return Vec::new(),
         Ok(value) => value,
     };
 
-    let frames: Vec<Frame> = sqlite_rows.iter().map(|e| Frame::from_row(e).unwrap()).collect();
+    let frames: Vec<Frame> = sqlite_rows
+        .iter()
+        .map(|e| Frame::from_row(e).unwrap())
+        .collect();
     return frames;
 }
 
@@ -141,9 +141,15 @@ pub async fn get_animation_id(
     Path(frame_id): Path<i32>,
     State(state): State<Arc<AppState>>,
 ) -> Response {
-    let meta_frame = match get_frame_data(frame_id, &state.db){
+    let meta_frame = match get_frame_data(frame_id, &state.db) {
         Some(result) => result,
-        None => return (StatusCode::BAD_REQUEST, json!({"error":"parent_id not found"}).to_string()).into_response(),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error":"parent_id not found"}).to_string(),
+            )
+                .into_response()
+        }
     };
 
     let frames = get_all_frames_of_parent(meta_frame.id, &state.db);
@@ -151,20 +157,23 @@ pub async fn get_animation_id(
     let number_of_frames = frames.len();
     ani.frames = frames;
 
-
     state
         .send_to_controller
         .send(ani)
         .await
         .expect("Could not send data");
 
-    return (StatusCode::OK, json!({
-        "animation":{
-            "frame_data": meta_frame,
-            "frames":number_of_frames,
-        }
-    }).to_string()).into_response();
-    
+    return (
+        StatusCode::OK,
+        json!({
+            "animation":{
+                "frame_data": meta_frame,
+                "frames":number_of_frames,
+            }
+        })
+        .to_string(),
+    )
+        .into_response();
 }
 
 pub async fn delete_animation_id(

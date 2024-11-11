@@ -3,9 +3,9 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
-use toml;
 #[allow(dead_code, unused_imports)]
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use toml;
 
 use crate::database::animation::Animation;
 

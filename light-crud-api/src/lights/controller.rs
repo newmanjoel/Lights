@@ -8,7 +8,6 @@ use rs_ws281x::ControllerBuilder;
 
 use super::converter;
 
-use crate::database::animation::Animation;
 use crate::database::frame::Frame;
 
 pub fn setup() -> rs_ws281x::Controller {
