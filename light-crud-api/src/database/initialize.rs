@@ -14,6 +14,7 @@ use super::{animation, frame, frame_data, location};
 pub struct AppState {
     pub db: SqlitePool,
     pub send_to_controller: tokio::sync::mpsc::Sender<Animation>,
+    pub send_to_brightness: tokio::sync::mpsc::Sender<u8>,
 }
 
 pub async fn setup(config: &Config) -> Router {
@@ -23,7 +24,8 @@ pub async fn setup(config: &Config) -> Router {
     let pool = get_or_create_sqlite_database(filepath).await.unwrap();
     let state: std::sync::Arc<AppState> = std::sync::Arc::new(AppState {
         db: pool,
-        send_to_controller: config.sending_channel.clone(),
+        send_to_controller: config.animation_comms.sending_channel.clone(),
+        send_to_brightness: config.brightness_comms.sending_channel.clone(),
     });
     let frame_routes = frame::router(&mut index, state.clone());
     let frame_data_routes = frame_data::router(&mut index, state.clone());

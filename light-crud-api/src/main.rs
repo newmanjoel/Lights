@@ -63,7 +63,8 @@ async fn main() {
     }
     if config.debug.enable_lights {
         println!("Starting Controller loop ... ");
-        let mut recver = config.receving_channel;
+        let mut animation_receiver = config.animation_comms.receving_channel;
+        let mut brightness_receiver = config.brightness_comms.receving_channel;
         // let _loop_handle = tokio::spawn(async move {
         println!("in the controller thread");
 
@@ -77,7 +78,7 @@ async fn main() {
         let mut working_time = 20;
         while !looping_flag.load(Ordering::Relaxed) {
             // if there is a new animation, load it and set the relevant counters
-            match timeout(Duration::from_millis(10), recver.recv()).await {
+            match timeout(Duration::from_micros(1), animation_receiver.recv()).await {
                 Err(_) => {}
                 Ok(value) => match value {
                     None => println!("Error on the animation receive"),
@@ -87,6 +88,15 @@ async fn main() {
                         working_frame_size = working_animation.frames.len();
                         working_time = (1000.0 / working_animation.speed) as u64;
                         println!("{working_time:?}ms vs {}", working_animation.speed);
+                    }
+                },
+            }
+            match timeout(Duration::from_micros(1), brightness_receiver.recv()).await {
+                Err(_) => {}
+                Ok(value) => match value {
+                    None => println!("Error on the animation receive"),
+                    Some(brightness_value) => {
+                        controller.set_brightness(0, brightness_value);
                     }
                 },
             }

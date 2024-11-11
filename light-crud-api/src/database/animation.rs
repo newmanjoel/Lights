@@ -79,15 +79,34 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
         .route("/", get(get_animations))
         .route("/:id", get(get_animation_id))
         .route("/:id", delete(delete_animation_id))
+        .route("/brightness/set/:id", post(set_brightness))
         .with_state(state);
 
-    index.insert("/frame_data", "GET,POST");
-    index.insert("/frame_data/:id", "GET,DELETE");
+    index.insert("/animation", "GET,POST");
+    index.insert("/animation/:id", "GET,DELETE");
+    index.insert("/animation/brightness/set/:value", "POST");
     return app;
 }
 #[allow(unused_variables)]
 async fn post_animations(State(state): State<Arc<AppState>>, payload: String) -> Response {
     todo!()
+}
+
+#[allow(unused_variables)]
+async fn set_brightness(
+    Path(brightness_value): Path<u8>,
+    State(state): State<Arc<AppState>>,
+) -> Response {
+    state
+        .send_to_brightness
+        .send(brightness_value)
+        .await
+        .unwrap();
+    return (
+        StatusCode::OK,
+        json!({"brightness":brightness_value}).to_string(),
+    )
+        .into_response();
 }
 
 pub fn get_frame_data(id: i32, db: &Pool<Sqlite>) -> Option<FrameMetadata> {
@@ -138,6 +157,16 @@ async fn get_animations(State(state): State<Arc<AppState>>) -> Response {
     // };
 }
 
+/// Starts an animation and returns basic data about the animation
+///
+/// # Arguments
+/// * `frame_id` - Extracted from the path from /:id
+/// * `state` - Shared with the function through the router
+///
+/// # Returns
+///
+/// Resonse Object. {"animation":{"frame_data": meta_frame,"frames":number_of_frames,}}
+///
 pub async fn get_animation_id(
     Path(frame_id): Path<i32>,
     State(state): State<Arc<AppState>>,
@@ -177,6 +206,7 @@ pub async fn get_animation_id(
         .into_response();
 }
 
+//"DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1"
 pub async fn delete_animation_id(
     Path(frame_id): Path<i32>,
     State(state): State<Arc<AppState>>,

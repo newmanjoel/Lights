@@ -17,12 +17,29 @@ pub struct TOMLConfig {
 }
 
 #[derive(Debug)]
+pub struct CompactSender<T> {
+    pub sending_channel: tokio::sync::mpsc::Sender<T>,
+    pub receving_channel: tokio::sync::mpsc::Receiver<T>,
+}
+impl<T> CompactSender<T> {
+    pub fn new() -> Self {
+        let (tx, rx) = tokio::sync::mpsc::channel::<T>(32);
+        CompactSender {
+            sending_channel: tx,
+            receving_channel: rx,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Config {
     pub database: DatabaseConfig,
     pub web: WebConfig,
     pub debug: DebugConfig,
-    pub sending_channel: tokio::sync::mpsc::Sender<Animation>,
-    pub receving_channel: tokio::sync::mpsc::Receiver<Animation>,
+    pub animation_comms: CompactSender<Animation>,
+    pub brightness_comms: CompactSender<u8>,
+    // pub sending_channel: tokio::sync::mpsc::Sender<Animation>,
+    // pub receving_channel: tokio::sync::mpsc::Receiver<Animation>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -62,26 +79,31 @@ impl Default for DebugConfig {
 #[allow(dead_code, unused_mut)]
 impl Default for Config {
     fn default() -> Self {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<Animation>(32);
+        // let (tx, mut rx) = tokio::sync::mpsc::channel::<Animation>(32);
+
         Config {
             database: DatabaseConfig::default(),
             web: WebConfig::default(),
             debug: DebugConfig::default(),
-            sending_channel: tx,
-            receving_channel: rx,
+            animation_comms: CompactSender::new(),
+            brightness_comms: CompactSender::new(),
+            // sending_channel: tx,
+            // receving_channel: rx,
         }
     }
 }
 #[allow(dead_code, unused_mut)]
 impl From<TOMLConfig> for Config {
     fn from(a: TOMLConfig) -> Self {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<Animation>(32);
+        // let (tx, mut rx) = tokio::sync::mpsc::channel::<Animation>(32);
         Config {
             database: a.database,
             web: a.web,
             debug: a.debug,
-            sending_channel: tx,
-            receving_channel: rx,
+            animation_comms: CompactSender::new(),
+            brightness_comms: CompactSender::new(),
+            // sending_channel: tx,
+            // receving_channel: rx,
         }
     }
 }
