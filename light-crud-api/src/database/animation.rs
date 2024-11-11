@@ -2,20 +2,20 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{delete, get, post, put},
+    routing::{delete, get, post},
     Router,
 };
 use std::{collections::HashMap, sync::Arc};
 
 use futures::executor::block_on;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::json;
 
 use sqlx::{FromRow, Pool, Sqlite};
 
 use super::{frame::Frame, frame_data::FrameMetadata, initialize::AppState};
 
-const EXAMPLE_DATA: &str = r#"
+const _EXAMPLE_DATA: &str = r#"
 {
     "animation":{
         "frame_data":{"name":"Some String Name","speed":24.0},
@@ -29,10 +29,10 @@ const EXAMPLE_DATA: &str = r#"
 }
 "#;
 
-const GET_SQL_STATEMENT: &str = "SELECT id, name, speed FROM Frame_Metadata WHERE id = ? LIMIT 1";
-const DELETE_SQL_STATEMENT: &str = "DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1";
-const UPDATE_SQL_STATEMENT: &str = "UPDATE Frame_Metadata SET name = ?, speed= ? WHERE id = ?";
-const INSERT_SQL_STATEMENT: &str = "INSERT INTO Frame_Metadata (name, speed) Values(?, ?)";
+const GET_SQL_STATEMENT: &str = "SELECT id, name, speed FROM Frame_Metadata WHERE id = ? ";
+const _DELETE_SQL_STATEMENT: &str = "DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1";
+const _UPDATE_SQL_STATEMENT: &str = "UPDATE Frame_Metadata SET name = ?, speed= ? WHERE id = ?";
+const _INSERT_SQL_STATEMENT: &str = "INSERT INTO Frame_Metadata (name, speed) Values(?, ?)";
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Animation {
@@ -85,7 +85,7 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
     index.insert("/frame_data/:id", "GET,DELETE");
     return app;
 }
-
+#[allow(unused_variables)]
 async fn post_animations(State(state): State<Arc<AppState>>, payload: String) -> Response {
     todo!()
 }
@@ -122,6 +122,7 @@ pub fn get_all_frames_of_parent(id: i32, db: &Pool<Sqlite>) -> Vec<Frame> {
     return frames;
 }
 
+#[allow(unused_variables)]
 async fn get_animations(State(state): State<Arc<AppState>>) -> Response {
     todo!();
 
