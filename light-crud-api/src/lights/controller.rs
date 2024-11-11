@@ -78,7 +78,7 @@ pub fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
 
     for (led_color, mut led) in frame_data.iter().zip(controller.leds_mut(0).iter_mut()) {
         let bytes = converter::ByteRGB::from_u32(*led_color);
-        println!("{bytes:?}");
+        // println!("{bytes:?}");
         *led = [bytes.red, bytes.green, bytes.blue, 0];
 
         // // let leds = controller.leds_mut(0);

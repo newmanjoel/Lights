@@ -74,6 +74,7 @@ async fn main() {
         let mut working_animation = Animation::new_with_single_frame(255);
         let mut working_index = 0;
         let mut working_frame_size = 1;
+        let mut working_time = 20;
         while !looping_flag.load(Ordering::Relaxed) {
             // if there is a new animation, load it and set the relevant counters
             match timeout(Duration::from_millis(10), recver.recv()).await {
@@ -84,6 +85,7 @@ async fn main() {
                         working_animation = frame;
                         working_index = 0;
                         working_frame_size = working_animation.frames.len();
+                        working_time = (1.0/working_animation.speed) as u64;
                     },
                 },
             }
@@ -92,7 +94,7 @@ async fn main() {
             working_index += 1;
             working_index = working_index % working_frame_size;
             lights::controller::write_frame(working_frame, &mut controller);
-            block_on(tokio::time::sleep(Duration::from_millis(20)));
+            block_on(tokio::time::sleep(Duration::from_millis(working_time)));
 
 
         }
