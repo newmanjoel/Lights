@@ -7,12 +7,13 @@ use std::path::Path;
 
 use crate::config::Config;
 
-use super::{frame, frame_data, location};
+use super::{animation, frame, frame_data, location};
+use super::animation::Animation;
 
 #[derive(Clone, Debug)]
 pub struct AppState {
     pub db: SqlitePool,
-    pub send_to_controller: tokio::sync::mpsc::Sender<frame::Frame>,
+    pub send_to_controller: tokio::sync::mpsc::Sender<Animation>,
 }
 
 pub async fn setup(config: &Config) -> Router {
@@ -27,6 +28,7 @@ pub async fn setup(config: &Config) -> Router {
     let frame_routes = frame::router(&mut index, state.clone());
     let frame_data_routes = frame_data::router(&mut index, state.clone());
     let location_routes = location::router(&mut index, state.clone());
+    let animation_routes = animation::router(&mut index, state.clone());
 
     let app: Router = Router::new()
         .route(
@@ -35,7 +37,9 @@ pub async fn setup(config: &Config) -> Router {
         )
         .nest("/frame", frame_routes)
         .nest("/frame_data", frame_data_routes)
-        .nest("/location", location_routes);
+        .nest("/location", location_routes)
+        .nest("/animation",animation_routes);
+
     return app;
 }
 

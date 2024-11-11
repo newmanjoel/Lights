@@ -1,13 +1,14 @@
-use std::time::Duration;
+// use std::time::Duration;
 
-use futures::executor::block_on;
+// use futures::executor::block_on;
 use rs_ws281x::ChannelBuilder;
 use rs_ws281x::ControllerBuilder;
 // use rs_ws281x::StripType;
-use futures;
+// use futures;
 
 use super::converter;
 
+use crate::database::animation::Animation;
 use crate::database::frame::Frame;
 
 pub fn setup() -> rs_ws281x::Controller {
@@ -87,3 +88,5 @@ pub fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
     }
     controller.render().unwrap();
 }
+
+// /home/pi/Lights/db/sqlite.db

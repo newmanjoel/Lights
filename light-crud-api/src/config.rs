@@ -4,10 +4,10 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use toml;
-
+#[allow(dead_code, unused_imports)]
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
-use crate::database::frame::Frame;
+use crate::database::animation::Animation;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TOMLConfig {
@@ -21,8 +21,8 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub web: WebConfig,
     pub debug: DebugConfig,
-    pub sending_channel: tokio::sync::mpsc::Sender<crate::database::frame::Frame>,
-    pub receving_channel: tokio::sync::mpsc::Receiver<crate::database::frame::Frame>,
+    pub sending_channel: tokio::sync::mpsc::Sender<Animation>,
+    pub receving_channel: tokio::sync::mpsc::Receiver<Animation>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -59,9 +59,10 @@ impl Default for DebugConfig {
         }
     }
 }
+#[allow(dead_code, unused_mut)]
 impl Default for Config {
     fn default() -> Self {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<Frame>(32);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<Animation>(32);
         Config {
             database: DatabaseConfig::default(),
             web: WebConfig::default(),
@@ -71,9 +72,10 @@ impl Default for Config {
         }
     }
 }
+#[allow(dead_code, unused_mut)]
 impl From<TOMLConfig> for Config {
     fn from(a: TOMLConfig) -> Self {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<Frame>(32);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<Animation>(32);
         Config {
             database: a.database,
             web: a.web,
@@ -92,6 +94,7 @@ impl Default for DatabaseConfig {
     }
 }
 
+#[allow(dead_code, unused_mut)]
 pub fn read_or_create_config<P: AsRef<Path>>(path: P) -> io::Result<Config> {
     let mut toml_config = TOMLConfig::default();
     if path.as_ref().exists() {

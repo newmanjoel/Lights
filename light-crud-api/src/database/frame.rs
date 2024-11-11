@@ -14,6 +14,8 @@ use sqlx::FromRow;
 
 use crate::database::initialize::AppState;
 
+use super::animation;
+
 const EXAMPLE_DATA: &str = r#"{"frame":{"parent_id":1,"frame_id":1, "data":"[1,2,3]"}}"#;
 const GET_SQL_STATEMENT: &str =
     "SELECT id, parent_id, frame_id, data FROM Frames WHERE id = ? LIMIT 1";
@@ -38,6 +40,18 @@ impl Frame {
             parent_id: -1,
             frame_id: -1,
             data: "[]".to_owned(),
+        }
+    }
+    pub fn new_with_color(color:u32, size:usize) -> Self {
+        let repeated =std::iter::repeat(color.to_string())
+            .take(size)
+            .collect::<Vec<_>>()
+            .join(",");
+        Frame {
+            id: -1,
+            parent_id: -1,
+            frame_id: -1,
+            data: format!("[{}]", repeated),
         }
     }
 
@@ -143,9 +157,14 @@ pub async fn show_frame_id(
                 .into_response()
         }
     };
+    let meta_frame =animation::get_frame_data(data.parent_id as i32, &state.db).unwrap();
+
+    let mut ani = animation::Animation::from(meta_frame);
+    ani.frames.push(data.clone());
+
     state
         .send_to_controller
-        .send(data.clone())
+        .send(ani)
         .await
         .expect("Could not send data");
 

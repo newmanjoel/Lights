@@ -10,6 +10,7 @@ use std::time::Duration;
 use config::read_or_create_config;
 // use database::frame::Frame;
 
+use database::animation::Animation;
 use futures::executor::block_on;
 use thread_utils::NotifyChecker;
 use tokio;
@@ -69,21 +70,31 @@ async fn main() {
         let mut controller = lights::controller::setup();
         // let mut test_frame = Frame::new();
         let looping_flag = shutdown_notify_controller_loop.flag.clone();
+
+        let mut working_animation = Animation::new_with_single_frame(255);
+        let mut working_index = 0;
+        let mut working_frame_size = 1;
         while !looping_flag.load(Ordering::Relaxed) {
-            // println!("inside loop");
-            // println!("{shutdown_notify_controller_loop:?}");
-            match timeout(Duration::from_secs(10), recver.recv()).await {
-                Err(_) => println!("."),
+            // if there is a new animation, load it and set the relevant counters
+            match timeout(Duration::from_millis(10), recver.recv()).await {
+                Err(_) => {},
                 Ok(value) => match value {
-                    None => println!("Error on the frame receive"),
-                    Some(frame) => lights::controller::write_frame(&frame, &mut controller),
-                    // Some(frame) => println!("{frame:?}"),
+                    None => println!("Error on the animation receive"),
+                    Some(frame) => {
+                        working_animation = frame;
+                        working_index = 0;
+                        working_frame_size = working_animation.frames.len();
+                    },
                 },
             }
+
+            let working_frame = &working_animation.frames[working_index];
+            working_index += 1;
+            working_index = working_index % working_frame_size;
+            lights::controller::write_frame(working_frame, &mut controller);
             block_on(tokio::time::sleep(Duration::from_millis(20)));
 
-            // println!("{shutdown_notify_controller_loop:?}");
-            // test_frame.data = String::from("[16711680,255, 65280]");
+
         }
         // });
         println!("Stopping Controller Loop ...");
