@@ -62,7 +62,7 @@ pub fn write_frame(frame: &Frame, controller: &mut rs_ws281x::Controller) {
     // println!("\nframe_data length {data_len:?}");
     // println!("led_controller length {led_num:?}");
     // assert_eq!(data_len, led_num);
-    println!("assuming that they are the same size ... ");
+    // println!("assuming that they are the same size ... ");
 
     // let zipped = frame_data
     //     .iter_mut()

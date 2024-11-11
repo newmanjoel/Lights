@@ -147,11 +147,21 @@ pub async fn get_animation_id(
     };
 
     let frames = get_all_frames_of_parent(meta_frame.id, &state.db);
+    let mut ani = Animation::from(meta_frame.clone());
+    let number_of_frames = frames.len();
+    ani.frames = frames;
+
+
+    state
+        .send_to_controller
+        .send(ani)
+        .await
+        .expect("Could not send data");
 
     return (StatusCode::OK, json!({
         "animation":{
             "frame_data": meta_frame,
-            "frames":frames,
+            "frames":number_of_frames,
         }
     }).to_string()).into_response();
     
