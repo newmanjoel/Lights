@@ -65,11 +65,9 @@ async fn main() {
         println!("Starting Controller loop ... ");
         let mut animation_receiver = config.animation_comms.receving_channel;
         let mut brightness_receiver = config.brightness_comms.receving_channel;
-        // let _loop_handle = tokio::spawn(async move {
         println!("in the controller thread");
 
         let mut controller = lights::controller::setup();
-        // let mut test_frame = Frame::new();
         let looping_flag = shutdown_notify_controller_loop.flag.clone();
 
         let mut working_animation = Animation::new_with_single_frame(255);
@@ -97,6 +95,7 @@ async fn main() {
                     None => println!("Error on the animation receive"),
                     Some(brightness_value) => {
                         controller.set_brightness(0, brightness_value);
+                        println!("Setting the Brightness to {}", brightness_value);
                     }
                 },
             }
@@ -107,13 +106,11 @@ async fn main() {
             lights::controller::write_frame(working_frame, &mut controller);
             block_on(tokio::time::sleep(Duration::from_millis(working_time)));
         }
-        // });
         println!("Stopping Controller Loop ...");
     } else {
         println!("Not Starting Lighting Controller");
     }
 
-    // tokio::time::sleep(Duration::from_millis(50)).await;
     if !config.debug.enable_lights {
         println!("Press Ctrl + C to end the program.");
         wait_for_shutdown(shutdown_notify_main_loop.notify).await;

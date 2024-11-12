@@ -31,6 +31,20 @@ pub struct Frame {
     pub data: String,
 }
 
+#[derive(Clone, Debug,Serialize, Deserialize)]
+pub struct DataFrame{
+    pub id: i32,
+    pub parent_id: i64,
+    pub frame_id: i64,
+    pub data: Vec<u32>,
+}
+
+impl From<&Frame> for DataFrame {
+    fn from(a: &Frame) -> Self {
+        DataFrame { id: a.id, parent_id: a.parent_id, frame_id: a.frame_id, data: a.data_out()}
+    }
+}
+
 #[allow(dead_code)]
 impl Frame {
     pub fn new() -> Self {
@@ -159,7 +173,7 @@ pub async fn show_frame_id(
     let meta_frame = animation::get_frame_data(data.parent_id as i32, &state.db).unwrap();
 
     let mut ani = animation::Animation::from(meta_frame);
-    ani.frames.push(data.clone());
+    ani.frames.push(DataFrame::from(&data));
 
     state
         .send_to_controller

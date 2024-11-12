@@ -13,7 +13,7 @@ use serde_json::json;
 
 use sqlx::{FromRow, Pool, Sqlite};
 
-use super::{frame::Frame, frame_data::FrameMetadata, initialize::AppState};
+use super::{frame::{DataFrame, Frame}, frame_data::FrameMetadata, initialize::AppState};
 
 const _EXAMPLE_DATA: &str = r#"
 {
@@ -39,7 +39,7 @@ pub struct Animation {
     pub id: i32,
     pub name: String,
     pub speed: f64,
-    pub frames: Vec<Frame>,
+    pub frames: Vec<DataFrame>,
 }
 #[allow(dead_code)]
 impl Animation {
@@ -57,7 +57,7 @@ impl Animation {
             id: -1,
             name: String::from(""),
             speed: 24.0,
-            frames: vec![single_frame],
+            frames: vec![DataFrame::from(&single_frame)],
         }
     }
 }
@@ -182,7 +182,7 @@ pub async fn get_animation_id(
         }
     };
 
-    let frames = get_all_frames_of_parent(meta_frame.id, &state.db);
+    let frames: Vec<DataFrame> = get_all_frames_of_parent(meta_frame.id, &state.db).iter().map(|e| DataFrame::from(e)).collect();
     let mut ani = Animation::from(meta_frame.clone());
     let number_of_frames = frames.len();
     ani.frames = frames;
