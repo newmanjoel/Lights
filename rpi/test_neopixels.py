@@ -11,7 +11,7 @@ import numpy as np
 
 # remember grb
 black = "#090909"
-orange = "#1c5c00"
+orange = "#1c5c00" # actually 92,28,0 in rgb
 
 pixels.fill((78, 252, 0))
 pixels.show()
@@ -39,10 +39,16 @@ def hex_to_rgb(hex_color):
     rgb = tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
     return rgb
 
+red_linspace = np.linspace(92,255,fade_amount).astype(int).tolist()
+green_linspace = np.linspace(28,255,fade_amount).astype(int).tolist()
+blue_linspace = np.linspace(0,255,fade_amount).astype(int).tolist()
 
-for x in range(fade_amount):
-    red = int(clamp(x * multi_amount, 0, 255))
-    lighting[x] = rgb_to_hex(78, red, 0)
+for index, (r,g,b) in enumerate(list(zip(red_linspace, green_linspace, blue_linspace))):
+    lighting[index] = rgb_to_hex(g,r,b) # this is the actual decoding. ... this is dumb
+
+#for x in range(fade_amount):
+    #red = int(clamp(x * multi_amount, 0, 255))
+    #lighting[x] = rgb_to_hex(78, red, 0)
 
 actual_FPS = 0
 loading_time = 0
@@ -55,7 +61,7 @@ try:
             pixels[pixel_num] = hex_to_rgb(lighting[pixel_num])
         # pixels[0:led_num] = lighting
         time2 = time.time()
-        lighting = list(np.roll(lighting, 1, axis=0))
+        lighting = list(np.roll(lighting, 1, axis=0)) # this move the 255 to the right
         time3 = time.time()
         pixels.show()
         current_time = datetime.datetime.now()
