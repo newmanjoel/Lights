@@ -93,7 +93,7 @@ impl FrameMetadata {
 
     pub fn delete_in_db(id: i32, db: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
         let result = block_on(
-            sqlx::query("DELETE FROM Frames WHERE id = ?")
+            sqlx::query("DELETE FROM Frame_Metadata WHERE id = ?")
                 .bind(id)
                 .execute(db),
         );
@@ -104,6 +104,7 @@ impl FrameMetadata {
         };
     }
 
+    #[allow(dead_code)]
     pub fn get_all_from_db(db: &Pool<Sqlite>) -> Vec<Self> {
         let frame_meta_results = block_on(
             sqlx::query_as::<_, FrameMetadata>("SELECT id, name, speed FROM Frame_Metadata")

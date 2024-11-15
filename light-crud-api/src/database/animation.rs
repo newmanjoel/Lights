@@ -11,7 +11,7 @@ use futures::executor::block_on;
 use serde::Serialize;
 use serde_json::json;
 
-use sqlx::{FromRow, Pool, Sqlite};
+use sqlx::{Pool, Sqlite};
 
 use super::{
     frame::{DataFrame, Frame},
@@ -33,10 +33,10 @@ const _EXAMPLE_DATA: &str = r#"
 }
 "#;
 
-const GET_SQL_STATEMENT: &str = "SELECT id, name, speed FROM Frame_Metadata WHERE id = ? ";
-const _DELETE_SQL_STATEMENT: &str = "DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1";
-const _UPDATE_SQL_STATEMENT: &str = "UPDATE Frame_Metadata SET name = ?, speed= ? WHERE id = ?";
-const _INSERT_SQL_STATEMENT: &str = "INSERT INTO Frame_Metadata (name, speed) Values(?, ?)";
+// const GET_SQL_STATEMENT: &str = "SELECT id, name, speed FROM Frame_Metadata WHERE id = ? ";
+// const _DELETE_SQL_STATEMENT: &str = "DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1";
+// const _UPDATE_SQL_STATEMENT: &str = "UPDATE Frame_Metadata SET name = ?, speed= ? WHERE id = ?";
+// const _INSERT_SQL_STATEMENT: &str = "INSERT INTO Frame_Metadata (name, speed) Values(?, ?)";
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Animation {
@@ -45,7 +45,7 @@ pub struct Animation {
     pub speed: f64,
     pub frames: Vec<DataFrame>,
 }
-#[allow(dead_code)]
+#[allow(dead_code,unused_variables)]
 impl Animation {
     pub fn new() -> Self {
         Animation {
@@ -130,7 +130,10 @@ impl Animation {
                 Ok(_) => {
                     result.entry("frames_deleted").and_modify(|e| *e += 1);
                 }
-                Err(error) => return Err(error),
+                Err(error) => return {
+                    println!("{}",json!({"hashmap": result, "error": error.to_string()}).to_string()); 
+                    Err(error)
+                },
             }
         }
         let parent_data_result = FrameMetadata::delete_in_db(id, db);
@@ -139,7 +142,10 @@ impl Animation {
             Ok(_) => {
                 result.entry("frame_data_deleted").and_modify(|e| *e += 1);
             }
-            Err(err) => return Err(err),
+            Err(error) => return {
+                println!("{}",json!({"hashmap": result, "error": error.to_string()}).to_string()); 
+                Err(error)
+            },
         };
         return Ok(result);
     }
@@ -254,7 +260,6 @@ pub async fn get_animation_id(
     return (StatusCode::OK, json!({"animation":ani}).to_string()).into_response();
 }
 
-//"DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1"
 pub async fn delete_animation_id(
     Path(frame_id): Path<i32>,
     State(state): State<Arc<AppState>>,

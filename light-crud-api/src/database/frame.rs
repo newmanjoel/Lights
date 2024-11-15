@@ -6,7 +6,7 @@ use axum::{
     Router,
 };
 use futures::executor::block_on;
-use std::{collections::HashMap, process::id, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -18,11 +18,6 @@ use crate::database::initialize::AppState;
 use super::{animation, frame_data::FrameMetadata};
 
 const EXAMPLE_DATA: &str = r#"{"frame":{"parent_id":1,"frame_id":1, "data":"[1,2,3]"}}"#;
-// const GET_SQL_STATEMENT: &str = "SELECT id, parent_id, frame_id, data FROM Frames WHERE id = ?";
-// const DELETE_SQL_STATEMENT: &str = "DELETE FROM Frames WHERE id = ?";
-// const UPDATE_SQL_STATEMENT: &str =
-// "UPDATE Frames SET parent_id = ?, frame_id= ?, data= ? WHERE id = ?";
-// const INSERT_SQL_STATEMENT: &str = "INSERT INTO Frames (parent_id, frame_id, data) Values(?, ?, ?)";
 
 #[derive(Clone, FromRow, Debug, Serialize, Deserialize)]
 pub struct Frame {
