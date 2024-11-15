@@ -25,8 +25,6 @@ async fn wait_for_shutdown(notify: Arc<Notify>) {
     println!("Shutdown signal received. Closing server...");
 }
 
-
-
 #[tokio::main]
 async fn main() {
     let path = "config.toml";
@@ -34,19 +32,18 @@ async fn main() {
     println!("{config:?}");
 
     let notifier = NotifyChecker::new();
-    
-    
-    
-    
-    
+
     // Spawn a task to listen for a shutdown signal (e.g., Ctrl+C)
     let shutdown_signal_notifier = notifier.clone();
     tokio::spawn(thread_utils::wait_for_signals(shutdown_signal_notifier));
 
-    if config.debug.enable_timed_brightness{
+    if config.debug.enable_timed_brightness {
         let timed_brightness_notifier = notifier.clone();
         let brightness_tx = config.brightness_comms.sending_channel.clone();
-        tokio::spawn(thread_utils::timed_brightness(brightness_tx , timed_brightness_notifier));
+        tokio::spawn(thread_utils::timed_brightness(
+            brightness_tx,
+            timed_brightness_notifier,
+        ));
     }
 
     if config.debug.enable_webserver {

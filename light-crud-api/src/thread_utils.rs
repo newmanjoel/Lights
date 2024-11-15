@@ -1,10 +1,13 @@
-use std::{sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-}, time::Duration};
+use chrono::{Local, Timelike};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::Notify;
-use chrono::{Local, Timelike};
 // use chrono::DateTime;
 
 #[derive(Debug, Clone)]
@@ -51,19 +54,18 @@ pub async fn wait_for_signals(notify: NotifyChecker) {
     println!("Sent Notify Command")
 }
 
-pub async fn timed_brightness(sender: tokio::sync::mpsc::Sender<u8>, shutdown: NotifyChecker){
+pub async fn timed_brightness(sender: tokio::sync::mpsc::Sender<u8>, shutdown: NotifyChecker) {
     let night_brightness: u8 = 100;
-    let day_brightness:u8 = 1;
+    let day_brightness: u8 = 1;
     println!("Starting up timed brightness thread");
-    while !shutdown.is_notified(){
+    while !shutdown.is_notified() {
         let now = Local::now();
-        if now.time().hour() > 17{
+        if now.time().hour() > 17 {
             sender.send(night_brightness).await.unwrap();
-        }
-        else if now.time().hour() > 6{
+        } else if now.time().hour() > 6 {
             sender.send(day_brightness).await.unwrap();
         }
         tokio::time::sleep(Duration::from_secs(10)).await;
-    };
+    }
     println!("Shutting down the timed brightness thread");
 }

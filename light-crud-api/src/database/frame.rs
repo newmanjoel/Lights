@@ -5,23 +5,24 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
-use std::{collections::HashMap, sync::Arc};
+use futures::executor::block_on;
+use std::{collections::HashMap, process::id, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use sqlx::FromRow;
+use sqlx::{FromRow, Pool, Sqlite};
 
 use crate::database::initialize::AppState;
 
-use super::animation;
+use super::{animation, frame_data::FrameMetadata};
 
 const EXAMPLE_DATA: &str = r#"{"frame":{"parent_id":1,"frame_id":1, "data":"[1,2,3]"}}"#;
-const GET_SQL_STATEMENT: &str = "SELECT id, parent_id, frame_id, data FROM Frames WHERE id = ?";
-const DELETE_SQL_STATEMENT: &str = "DELETE FROM Frames WHERE id = ?";
-const UPDATE_SQL_STATEMENT: &str =
-    "UPDATE Frames SET parent_id = ?, frame_id= ?, data= ? WHERE id = ?";
-const INSERT_SQL_STATEMENT: &str = "INSERT INTO Frames (parent_id, frame_id, data) Values(?, ?, ?)";
+// const GET_SQL_STATEMENT: &str = "SELECT id, parent_id, frame_id, data FROM Frames WHERE id = ?";
+// const DELETE_SQL_STATEMENT: &str = "DELETE FROM Frames WHERE id = ?";
+// const UPDATE_SQL_STATEMENT: &str =
+// "UPDATE Frames SET parent_id = ?, frame_id= ?, data= ? WHERE id = ?";
+// const INSERT_SQL_STATEMENT: &str = "INSERT INTO Frames (parent_id, frame_id, data) Values(?, ?, ?)";
 
 #[derive(Clone, FromRow, Debug, Serialize, Deserialize)]
 pub struct Frame {
@@ -31,8 +32,8 @@ pub struct Frame {
     pub data: String,
 }
 
-#[derive(Clone, Debug,Serialize, Deserialize)]
-pub struct DataFrame{
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DataFrame {
     pub id: i32,
     pub parent_id: i64,
     pub frame_id: i64,
@@ -41,7 +42,22 @@ pub struct DataFrame{
 
 impl From<&Frame> for DataFrame {
     fn from(a: &Frame) -> Self {
-        DataFrame { id: a.id, parent_id: a.parent_id, frame_id: a.frame_id, data: a.data_out()}
+        DataFrame {
+            id: a.id,
+            parent_id: a.parent_id,
+            frame_id: a.frame_id,
+            data: a.data_out(),
+        }
+    }
+}
+impl From<&DataFrame> for Frame {
+    fn from(a: &DataFrame) -> Self {
+        Frame {
+            id: a.id,
+            parent_id: a.parent_id,
+            frame_id: a.frame_id,
+            data: json!(a.data).to_string(),
+        }
     }
 }
 
@@ -101,7 +117,7 @@ impl Frame {
             None => return Err(json!({"error":format!("could not find data")})),
         };
 
-        return Ok(Frame {
+        return Ok(Self {
             id: -1,
             parent_id: parent_id,
             frame_id: frame_id,
@@ -112,6 +128,84 @@ impl Frame {
     pub fn data_out(self: &Self) -> Vec<u32> {
         let vec: Vec<u32> = serde_json::from_str(&self.data).unwrap_or(Vec::new());
         return vec;
+    }
+
+    pub fn get_from_db(id: i32, db: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
+        let result = block_on(
+            sqlx::query_as::<_, Self>(
+                "SELECT id, parent_id, frame_id, data FROM Frames WHERE id = ?",
+            )
+            .bind(id)
+            .fetch_one(db),
+        );
+        return result;
+    }
+
+    pub fn update_in_db(self: &Self, db: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        let result = block_on(
+            sqlx::query("UPDATE Frames SET parent_id = ?, frame_id= ?, data= ? WHERE id = ?")
+                .bind(self.parent_id)
+                .bind(self.frame_id)
+                .bind(self.data.clone())
+                .bind(self.id)
+                .execute(db),
+        );
+        return match result {
+            Ok(_) => Ok(()),
+            Err(err) => Err(err),
+        };
+    }
+
+    pub fn insert_in_db(self: &Self, db: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
+        let result = block_on(
+            sqlx::query("INSERT INTO Frames (parent_id, frame_id, data) Values(?, ?, ?)")
+                .bind(self.parent_id)
+                .bind(self.frame_id)
+                .bind(self.data.clone())
+                .execute(db),
+        );
+
+        return match result {
+            Ok(value) => Ok({
+                let mut new_frame = self.clone();
+                new_frame.id = value.last_insert_rowid() as i32;
+                new_frame
+            }),
+            Err(err) => Err(err),
+        };
+    }
+
+    pub fn delete_in_db(id: i32, db: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        let result = block_on(
+            sqlx::query("DELETE FROM Frames WHERE id = ?")
+                .bind(id)
+                .execute(db),
+        );
+
+        return match result {
+            Ok(_) => Ok(()),
+            Err(err) => Err(err),
+        };
+    }
+
+    pub fn get_all_from_db(db: &Pool<Sqlite>) -> Result<Vec<Self>, sqlx::Error> {
+        let frame_results = block_on(
+            sqlx::query_as::<_, Self>("SELECT id, parent_id, frame_id, data FROM Frames")
+                .fetch_all(db),
+        );
+        return frame_results;
+    }
+
+    pub fn get_all_of_parent(parent_id: i32, db: &Pool<Sqlite>) -> Vec<Self> {
+        let frame_results = block_on(
+            sqlx::query("SELECT id, parent_id, frame_id, data FROM Frames WHERE parent_id = ?")
+                .bind(parent_id)
+                .fetch_all(db),
+        );
+        match frame_results {
+            Err(_) => return Vec::new(),
+            Ok(value) => return value.iter().map(|e| Frame::from_row(e).unwrap()).collect(),
+        };
     }
 }
 
@@ -131,16 +225,43 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
     return app;
 }
 
+fn extract_json_frame(payload: String) -> Result<Frame, Response> {
+    let json_payload: Value = match serde_json::from_str(&payload) {
+        Ok(result) => result,
+        Err(error) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response())
+        }
+    };
+
+    let frame_dict = match json_payload.get("frame") {
+        Some(value) => value,
+        None => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response())
+        }
+    };
+
+    match Frame::extract_from_dict(frame_dict) {
+        Ok(value) => return Ok(value),
+        Err(value) => return Err((StatusCode::BAD_REQUEST, value.to_string()).into_response()),
+    };
+}
+
 pub async fn get_frame_id(
-    extract::Path(frame_id): extract::Path<i32>,
+    extract::Path(id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
 ) -> Response {
-    let frame_results = sqlx::query_as::<_, Frame>(GET_SQL_STATEMENT)
-        .bind(frame_id)
-        .fetch_one(&state.db)
-        .await;
-    let data = match frame_results {
-        Ok(value) => value,
+    let frame_results = Frame::get_from_db(id, &state.db);
+
+    match frame_results {
+        Ok(value) => return serde_json::to_string(&value).unwrap().into_response(),
         Err(error) => {
             return (
                 StatusCode::BAD_REQUEST,
@@ -149,17 +270,14 @@ pub async fn get_frame_id(
                 .into_response()
         }
     };
-
-    return serde_json::to_string(&data).unwrap().into_response();
 }
+
 pub async fn show_frame_id(
     extract::Path(frame_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
 ) -> Response {
-    let frame_results = sqlx::query_as::<_, Frame>(GET_SQL_STATEMENT)
-        .bind(frame_id)
-        .fetch_one(&state.db)
-        .await;
+    let frame_results = Frame::get_from_db(frame_id, &state.db);
+
     let data = match frame_results {
         Ok(value) => value,
         Err(error) => {
@@ -170,7 +288,7 @@ pub async fn show_frame_id(
                 .into_response()
         }
     };
-    let meta_frame = animation::get_frame_data(data.parent_id as i32, &state.db).unwrap();
+    let meta_frame = FrameMetadata::get_from_db(data.parent_id as i32, &state.db).unwrap();
 
     let mut ani = animation::Animation::from(meta_frame);
     ani.frames.push(DataFrame::from(&data));
@@ -185,12 +303,10 @@ pub async fn show_frame_id(
 }
 
 pub async fn get_all_frame(extract::State(state): extract::State<Arc<AppState>>) -> Response {
-    let frame_results =
-        sqlx::query_as::<_, Frame>("SELECT id, parent_id, frame_id, data FROM Frames")
-            .fetch_all(&state.db)
-            .await;
-    let data = match frame_results {
-        Ok(value) => value,
+    let frame_results = Frame::get_all_from_db(&state.db);
+
+    match frame_results {
+        Ok(value) => return serde_json::to_string(&value).unwrap().into_response(),
         Err(error) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -199,54 +315,23 @@ pub async fn get_all_frame(extract::State(state): extract::State<Arc<AppState>>)
                 .into_response()
         }
     };
-
-    return serde_json::to_string(&data).unwrap().into_response();
 }
 
 pub async fn post_frame(
     extract::State(state): extract::State<Arc<AppState>>,
     payload: String,
 ) -> Response {
-    let json_payload: Value = match serde_json::from_str(&payload) {
-        Ok(result) => result,
-        Err(error) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
-            )
-                .into_response()
-        }
-    };
+    let extraction_results = extract_json_frame(payload);
 
-    let frame_dict = match json_payload.get("frame") {
-        Some(value) => value,
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
-            )
-                .into_response()
-        }
-    };
-
-    let frame = match Frame::extract_from_dict(&frame_dict) {
+    let frame = match extraction_results {
         Ok(value) => value,
-        Err(error) => return (StatusCode::BAD_REQUEST, error.to_string()).into_response(),
+        Err(response) => return response,
     };
 
-    let frame_results = sqlx::query(INSERT_SQL_STATEMENT)
-        .bind(frame.parent_id)
-        .bind(frame.frame_id)
-        .bind(frame.data)
-        .execute(&state.db)
-        .await;
+    let insert_results = frame.insert_in_db(&state.db);
 
-    match frame_results {
-        Ok(stats) => {
-            return json!({"id": stats.last_insert_rowid()})
-                .to_string()
-                .into_response()
-        }
+    match insert_results {
+        Ok(stats) => return json!({"id": stats.id}).to_string().into_response(),
         Err(stats) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -258,52 +343,24 @@ pub async fn post_frame(
 }
 
 pub async fn put_frame_id(
-    extract::Path(frame_id): extract::Path<i32>,
+    extract::Path(database_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
     payload: String,
 ) -> Response {
-    let json_payload: Value = match serde_json::from_str(&payload) {
-        Ok(result) => result,
-        Err(error) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                json!({"error":format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
-            )
-                .into_response()
+    let extraction_results = extract_json_frame(payload);
+
+    let frame = match extraction_results {
+        Ok(mut value) => {
+            value.id = database_id;
+            value
         }
+        Err(response) => return response,
     };
 
-    let frame_dict = match json_payload.get("frame") {
-        Some(value) => value,
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
-            )
-                .into_response()
-        }
-    };
+    let update_results = frame.update_in_db(&state.db);
 
-    let mut frame: Frame = match Frame::extract_from_dict(frame_dict) {
-        Ok(value) => value,
-        Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
-    };
-    frame.id = frame_id;
-
-    let frame_results = sqlx::query(UPDATE_SQL_STATEMENT)
-        .bind(frame.parent_id)
-        .bind(frame.frame_id)
-        .bind(frame.data)
-        .bind(frame.id)
-        .execute(&state.db)
-        .await;
-
-    match frame_results {
-        Ok(value) => {
-            return json!({"result": format!("{value:?}")})
-                .to_string()
-                .into_response()
-        }
+    match update_results {
+        Ok(_) => return serde_json::to_string(&frame).unwrap().into_response(),
         Err(value) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -315,16 +372,17 @@ pub async fn put_frame_id(
 }
 
 pub async fn delete_frame_id(
-    extract::Path(frame_id): extract::Path<i32>,
+    extract::Path(database_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
 ) -> Response {
-    let frame_results = sqlx::query(DELETE_SQL_STATEMENT)
-        .bind(frame_id)
-        .execute(&state.db)
-        .await;
+    let delete_results = Frame::delete_in_db(database_id, &state.db);
 
-    let data = match frame_results {
-        Ok(value) => value,
+    match delete_results {
+        Ok(_) => {
+            return json!({"id": format!("row {} deleted", database_id)})
+                .to_string()
+                .into_response()
+        }
         Err(error) => {
             return (
                 StatusCode::BAD_REQUEST,
@@ -333,8 +391,4 @@ pub async fn delete_frame_id(
                 .into_response();
         }
     };
-
-    return json!({"value": format!("{data:?}")})
-        .to_string()
-        .into_response();
 }

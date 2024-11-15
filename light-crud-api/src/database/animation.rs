@@ -13,7 +13,11 @@ use serde_json::json;
 
 use sqlx::{FromRow, Pool, Sqlite};
 
-use super::{frame::{DataFrame, Frame}, frame_data::FrameMetadata, initialize::AppState};
+use super::{
+    frame::{DataFrame, Frame},
+    frame_data::FrameMetadata,
+    initialize::AppState,
+};
 
 const _EXAMPLE_DATA: &str = r#"
 {
@@ -60,6 +64,85 @@ impl Animation {
             frames: vec![DataFrame::from(&single_frame)],
         }
     }
+
+    pub fn get_from_db(id: i32, db: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
+        let frame_meta = match block_on(
+            sqlx::query_as::<_, FrameMetadata>(
+                "SELECT id, name, speed FROM Frame_Metadata WHERE id = ? ",
+            )
+            .bind(id)
+            .fetch_one(db),
+        ) {
+            Ok(frame_metadata) => frame_metadata,
+            Err(error) => return Err(error),
+        };
+
+        let child_frames = Frame::get_all_of_parent(frame_meta.id, db);
+        let mut ani = Animation::from(frame_meta);
+        ani.frames = child_frames.iter().map(|e| DataFrame::from(e)).collect();
+
+        return Ok(ani);
+    }
+
+    pub fn update_in_db(self: &Self, db: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        todo!();
+        // let result = block_on(
+        //     sqlx::query("UPDATE Frames SET parent_id = ?, frame_id= ?, data= ? WHERE id = ?")
+        //         .bind(self.parent_id)
+        //         .bind(self.frame_id)
+        //         .bind(self.data.clone())
+        //         .bind(self.id)
+        //         .execute(db),
+        // );
+        // return match result {
+        //     Ok(_) => Ok(()),
+        //     Err(err) => Err(err),
+        // };
+    }
+
+    pub fn insert_in_db(self: &Self, db: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
+        todo!()
+        // let result = block_on(
+        //     sqlx::query("INSERT INTO Frames (parent_id, frame_id, data) Values(?, ?, ?)")
+        //         .bind(self.parent_id)
+        //         .bind(self.frame_id)
+        //         .bind(self.data.clone())
+        //         .execute(db),
+        // );
+
+        // return match result {
+        //     Ok(value) => Ok({
+        //         let mut new_frame = self.clone();
+        //         new_frame.id = value.last_insert_rowid() as i32;
+        //         new_frame
+        //     }),
+        //     Err(err) => Err(err),
+        // };
+    }
+
+    pub fn delete_in_db(id: i32, db: &Pool<Sqlite>) -> Result<HashMap<&str, i32>, sqlx::Error> {
+        let mut result = HashMap::new();
+        result.entry("frames_deleted").or_insert(0);
+        result.entry("frame_data_deleted").or_insert(0);
+        let child_frames = Frame::get_all_of_parent(id, db);
+        for child_frame in child_frames {
+            match Frame::delete_in_db(child_frame.id, db) {
+                Ok(_) => {
+                    result.entry("frames_deleted").and_modify(|e| *e += 1);
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        let parent_data_result = FrameMetadata::delete_in_db(id, db);
+
+        match parent_data_result {
+            Ok(_) => {
+                result.entry("frame_data_deleted").and_modify(|e| *e += 1);
+            }
+            Err(err) => return Err(err),
+        };
+        return Ok(result);
+    }
 }
 
 impl From<FrameMetadata> for Animation {
@@ -92,7 +175,6 @@ async fn post_animations(State(state): State<Arc<AppState>>, payload: String) ->
     todo!()
 }
 
-
 async fn set_brightness(
     Path(brightness_value): Path<u8>,
     State(state): State<Arc<AppState>>,
@@ -109,37 +191,18 @@ async fn set_brightness(
         .into_response();
 }
 
-pub fn get_frame_data(id: i32, db: &Pool<Sqlite>) -> Option<FrameMetadata> {
-    let frame_results = block_on(
-        sqlx::query_as::<_, FrameMetadata>(GET_SQL_STATEMENT)
-            .bind(id)
-            .fetch_one(db),
-    );
+// pub fn get_frame_data(id: i32, db: &Pool<Sqlite>) -> Option<FrameMetadata> {
+//     let frame_results = block_on(
+//         sqlx::query_as::<_, FrameMetadata>(GET_SQL_STATEMENT)
+//             .bind(id)
+//             .fetch_one(db),
+//     );
 
-    match frame_results {
-        Ok(result) => return Some(result),
-        Err(_) => return None,
-    }
-}
-
-pub fn get_all_frames_of_parent(id: i32, db: &Pool<Sqlite>) -> Vec<Frame> {
-    let frame_results = block_on(
-        sqlx::query("SELECT id, parent_id, frame_id, data FROM Frames WHERE parent_id = ?")
-            .bind(id)
-            .fetch_all(db),
-    );
-
-    let sqlite_rows = match frame_results {
-        Err(_) => return Vec::new(),
-        Ok(value) => value,
-    };
-
-    let frames: Vec<Frame> = sqlite_rows
-        .iter()
-        .map(|e| Frame::from_row(e).unwrap())
-        .collect();
-    return frames;
-}
+//     match frame_results {
+//         Ok(result) => return Some(result),
+//         Err(_) => return None,
+//     }
+// }
 
 #[allow(unused_variables)]
 async fn get_animations(State(state): State<Arc<AppState>>) -> Response {
@@ -171,53 +234,8 @@ pub async fn get_animation_id(
     Path(frame_id): Path<i32>,
     State(state): State<Arc<AppState>>,
 ) -> Response {
-    let meta_frame = match get_frame_data(frame_id, &state.db) {
-        Some(result) => result,
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                json!({"error":"parent_id not found"}).to_string(),
-            )
-                .into_response()
-        }
-    };
-
-    let frames: Vec<DataFrame> = get_all_frames_of_parent(meta_frame.id, &state.db).iter().map(|e| DataFrame::from(e)).collect();
-    let mut ani = Animation::from(meta_frame.clone());
-    let number_of_frames = frames.len();
-    ani.frames = frames;
-
-    state
-        .send_to_controller
-        .send(ani)
-        .await
-        .expect("Could not send data");
-
-    return (
-        StatusCode::OK,
-        json!({
-            "animation":{
-                "frame_data": meta_frame,
-                "frames":number_of_frames,
-            }
-        })
-        .to_string(),
-    )
-        .into_response();
-}
-
-//"DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1"
-pub async fn delete_animation_id(
-    Path(frame_id): Path<i32>,
-    State(state): State<Arc<AppState>>,
-) -> Response {
-    let frame_results = sqlx::query_as::<_, FrameMetadata>(GET_SQL_STATEMENT)
-        .bind(frame_id)
-        .fetch_one(&state.db)
-        .await;
-
-    match frame_results {
-        Ok(value) => return serde_json::to_string(&value).unwrap().into_response(),
+    let ani = match Animation::get_from_db(frame_id, &state.db) {
+        Ok(value) => value,
         Err(value) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -226,4 +244,33 @@ pub async fn delete_animation_id(
                 .into_response()
         }
     };
+
+    state
+        .send_to_controller
+        .send(ani.clone())
+        .await
+        .expect("Could not send data");
+
+    return (StatusCode::OK, json!({"animation":ani}).to_string()).into_response();
+}
+
+//"DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1"
+pub async fn delete_animation_id(
+    Path(frame_id): Path<i32>,
+    State(state): State<Arc<AppState>>,
+) -> Response {
+    let delete_results = match Animation::delete_in_db(frame_id, &state.db) {
+        Ok(value) => value,
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": error.to_string()}).to_string(),
+            )
+                .into_response()
+        }
+    };
+
+    return serde_json::to_string(&delete_results)
+        .unwrap()
+        .into_response();
 }

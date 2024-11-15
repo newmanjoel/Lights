@@ -51,7 +51,7 @@ pub struct DebugConfig {
     pub on_raspberry_pi: bool,
     pub enable_webserver: bool,
     pub enable_lights: bool,
-    pub enable_timed_brightness:bool
+    pub enable_timed_brightness: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -74,7 +74,7 @@ impl Default for DebugConfig {
             on_raspberry_pi: false,
             enable_webserver: false,
             enable_lights: false,
-            enable_timed_brightness: false
+            enable_timed_brightness: false,
         }
     }
 }
@@ -113,7 +113,7 @@ impl From<TOMLConfig> for Config {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         DatabaseConfig {
-            file_path: "/home/joel/GH/Lights/db/sqlite.db".to_string(),
+            file_path: "/home/pi/Lights/db/sqlite.db".to_string(),
         }
     }
 }
