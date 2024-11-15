@@ -25,6 +25,8 @@ async fn wait_for_shutdown(notify: Arc<Notify>) {
     println!("Shutdown signal received. Closing server...");
 }
 
+
+
 #[tokio::main]
 async fn main() {
     let path = "config.toml";
@@ -32,16 +34,25 @@ async fn main() {
     println!("{config:?}");
 
     let notifier = NotifyChecker::new();
-    let shutdown_signal_notifier = notifier.clone();
-    let shutdown_notify_web_server = notifier.clone();
-    let shutdown_notify_main_loop = notifier.clone();
-    let shutdown_notify_controller_loop = notifier.clone();
-
+    
+    
+    
+    
+    
     // Spawn a task to listen for a shutdown signal (e.g., Ctrl+C)
+    let shutdown_signal_notifier = notifier.clone();
     tokio::spawn(thread_utils::wait_for_signals(shutdown_signal_notifier));
+
+    if config.debug.enable_timed_brightness{
+        let timed_brightness_notifier = notifier.clone();
+        let brightness_tx = config.brightness_comms.sending_channel.clone();
+        tokio::spawn(thread_utils::timed_brightness(brightness_tx , timed_brightness_notifier));
+    }
 
     if config.debug.enable_webserver {
         println!("Starting Webserver ... ");
+        let shutdown_notify_web_server = notifier.clone();
+
         let app = database::initialize::setup(&config).await;
 
         let listener =
@@ -63,6 +74,7 @@ async fn main() {
     }
     if config.debug.enable_lights {
         println!("Starting Controller loop ... ");
+        let shutdown_notify_controller_loop = notifier.clone();
         let mut animation_receiver = config.animation_comms.receving_channel;
         let mut brightness_receiver = config.brightness_comms.receving_channel;
         println!("in the controller thread");
@@ -112,6 +124,7 @@ async fn main() {
     }
 
     if !config.debug.enable_lights {
+        let shutdown_notify_main_loop = notifier.clone();
         println!("Press Ctrl + C to end the program.");
         wait_for_shutdown(shutdown_notify_main_loop.notify).await;
     }

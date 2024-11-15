@@ -97,13 +97,11 @@ async fn set_brightness(
     Path(brightness_value): Path<u8>,
     State(state): State<Arc<AppState>>,
 ) -> Response {
-    println!("Received, {}", brightness_value);
     state
         .send_to_brightness
         .send(brightness_value)
         .await
         .unwrap();
-    println!("Sent, {}", brightness_value);
     return (
         StatusCode::OK,
         json!({"brightness":brightness_value}).to_string(),
