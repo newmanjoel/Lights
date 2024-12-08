@@ -11,7 +11,9 @@ import numpy as np
 
 # remember grb
 black = "#090909"
-orange = "#1c5c00" # actually 92,28,0 in rgb
+#orange = "#1c5c00" # actually 92,28,0 in rgb
+orange = "#4602a6"  # actually 2,70,166 in rgb
+
 
 pixels.fill((78, 252, 0))
 pixels.show()
