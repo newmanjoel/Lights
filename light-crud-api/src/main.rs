@@ -15,7 +15,6 @@ use timed::timing::timed_brightness;
 use tokio;
 use tokio::sync::Notify;
 
-
 use std::sync::Arc;
 
 // Function to await the shutdown signal
@@ -82,24 +81,23 @@ async fn main() {
 
         // set up an initial animation
         match app_state {
-            None => {} ,
+            None => {}
             Some(shared_state) => {
                 let command_comms_tx = config.command_comms.sending_channel.clone();
                 let ani_result = Animation::get_from_db(3, &shared_state.db);
                 match ani_result {
-                    Err(err) => {println!("Not setting initial animation due to error: {}", err);},
-                    Ok(ani) => command_comms_tx.send(command::ChangeLighting::Animation(ani)).await.unwrap(),
+                    Err(err) => {
+                        println!("Not setting initial animation due to error: {}", err);
+                    }
+                    Ok(ani) => command_comms_tx
+                        .send(command::ChangeLighting::Animation(ani))
+                        .await
+                        .unwrap(),
                 }
             }
         }
-        
 
-        light_loop(
-            light_shutdown_notifier,
-            command_comms_rx,
-            current_data,
-        )
-        .await;
+        light_loop(light_shutdown_notifier, command_comms_rx, current_data).await;
 
         // threads.push(handle);
     } else {

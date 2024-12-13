@@ -44,7 +44,7 @@ pub async fn setup(config: &Config) -> (Router, Arc<AppState>) {
         )
         .route(
             "/current",
-            get(|| async move { return current_data.to_json().to_string()}),
+            get(|| async move { return current_data.to_json().to_string() }),
         )
         .nest("/frame", frame_routes)
         .nest("/frame_data", frame_data_routes)

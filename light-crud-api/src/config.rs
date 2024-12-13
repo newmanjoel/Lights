@@ -64,7 +64,7 @@ impl Default for CurrentAnimationData {
     }
 }
 
-impl CurrentAnimationData{
+impl CurrentAnimationData {
     pub fn to_json(&self) -> serde_json::Value {
         let brightness = self.brightness.lock().unwrap();
         let animation_index = self.animation_index.lock().unwrap();
@@ -76,7 +76,7 @@ impl CurrentAnimationData{
             "animation_index": *animation_index,
             "frame_index": *frame_index,
             "animation_speed": *animation_speed,
-        })
+        });
     }
 }
 
@@ -97,7 +97,7 @@ pub struct DayNightConfig {
     pub day_hour: u32,
     pub day_brightness: u8,
     pub night_hour: u32,
-    pub night_brightness: u8
+    pub night_brightness: u8,
 }
 
 impl Default for DayNightConfig {

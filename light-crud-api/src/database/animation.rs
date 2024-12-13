@@ -212,20 +212,13 @@ async fn set_brightness(
     )
         .into_response();
 }
-async fn set_fps(
-    Path(new_fps): Path<f64>,
-    State(state): State<Arc<AppState>>,
-) -> Response {
+async fn set_fps(Path(new_fps): Path<f64>, State(state): State<Arc<AppState>>) -> Response {
     state
         .send_to_lights
         .send(ChangeLighting::Speed(new_fps))
         .await
         .unwrap();
-    return (
-        StatusCode::OK,
-        json!({"speed":new_fps}).to_string(),
-    )
-        .into_response();
+    return (StatusCode::OK, json!({"speed":new_fps}).to_string()).into_response();
 }
 
 // pub fn get_frame_data(id: i32, db: &Pool<Sqlite>) -> Option<FrameMetadata> {

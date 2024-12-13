@@ -13,8 +13,8 @@ use serde_json::{json, Value};
 
 use sqlx::{FromRow, Pool, Sqlite};
 
-use crate::database::initialize::AppState;
 use crate::command::ChangeLighting;
+use crate::database::initialize::AppState;
 
 use super::{animation, frame_data::FrameMetadata};
 

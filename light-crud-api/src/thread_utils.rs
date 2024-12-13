@@ -5,7 +5,6 @@ use std::sync::{
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::Notify;
 
-
 #[derive(Debug, Clone)]
 pub struct NotifyChecker {
     pub flag: Arc<AtomicBool>,

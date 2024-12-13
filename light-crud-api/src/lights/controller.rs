@@ -1,6 +1,5 @@
 // use std::time::Duration;
 
-
 use std::time::Duration;
 
 use colored::Colorize;
@@ -81,11 +80,19 @@ impl LedColor {
 #[allow(unused_mut)]
 pub fn write_frame(frame: &DataFrame, controller: &mut rs_ws281x::Controller) {
     // println!("write_frame: top");
-    for (led_color, mut led) in frame.data.iter().zip(controller.leds_mut(FRONT_OF_HOUSE_CHANNEL).iter_mut()) {
+    for (led_color, mut led) in frame
+        .data
+        .iter()
+        .zip(controller.leds_mut(FRONT_OF_HOUSE_CHANNEL).iter_mut())
+    {
         let bytes = converter::ByteRGB::from_u32(*led_color);
         *led = [bytes.red, bytes.green, bytes.blue, 0];
     }
-    for (led_color, mut led) in frame.data.iter().zip(controller.leds_mut(FRONT_ENTRYWAY_CHANNEL).iter_mut()) {
+    for (led_color, mut led) in frame
+        .data
+        .iter()
+        .zip(controller.leds_mut(FRONT_ENTRYWAY_CHANNEL).iter_mut())
+    {
         let bytes = converter::ByteRGB::from_u32(*led_color);
         *led = [bytes.red, bytes.green, bytes.blue, 0];
     }
@@ -121,39 +128,41 @@ pub async fn light_loop(
             Ok(value) => match value {
                 // this is an enum. So all of the values are garenteed to be correct?
                 None => println!("Error on the animation receive"),
-                Some(command_type) => match command_type{
+                Some(command_type) => match command_type {
                     ChangeLighting::Animation(new_animation) => {
                         working_animation = new_animation;
                         working_index = 0;
                         working_frame_size = working_animation.frames.len();
                         working_time = (1000.0 / working_animation.speed) as u64;
-                        println!("setting the loop time to {working_time:?}ms for {} fps", working_animation.speed);
-                        
+                        println!(
+                            "setting the loop time to {working_time:?}ms for {} fps",
+                            working_animation.speed
+                        );
+
                         let mut ani_index = current_data.animation_index.lock().unwrap();
                         *ani_index = working_animation.id;
                         let mut ani_speed = current_data.animation_speed.lock().unwrap();
                         *ani_speed = working_animation.speed;
                         // Do I have to do anything to unlock the mutex? or will it do that as soon as its dropped from scope?
-
-                    },
+                    }
                     ChangeLighting::Brightness(new_brightness) => {
                         controller.set_brightness(0, new_brightness);
                         controller.set_brightness(1, new_brightness);
                         println!("Setting the Brightness to {}", new_brightness);
-                        
+
                         let mut brightness = current_data.brightness.lock().unwrap();
                         *brightness = new_brightness;
-                        
                     }
                     ChangeLighting::Speed(new_fps) => {
                         working_time = (1000.0 / new_fps) as u64;
                         let mut ani_speed = current_data.animation_speed.lock().unwrap();
                         *ani_speed = new_fps;
-                        println!("setting the loop time to {working_time:?}ms for {} fps", new_fps);
+                        println!(
+                            "setting the loop time to {working_time:?}ms for {} fps",
+                            new_fps
+                        );
                     }
-
-                    
-                }
+                },
             },
         }
 
