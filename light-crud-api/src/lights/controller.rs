@@ -119,7 +119,7 @@ pub async fn light_loop(
     let mut working_index = 0;
     let mut working_frame_size = 1;
     let mut working_time = (1000.0 / working_animation.speed) as u64;
-    while  ! *shutdown_notifier.receving_channel.borrow_and_update(){
+    while !*shutdown_notifier.receving_channel.borrow_and_update() {
         // println!("top: {}", shutdown_notifier.is_notified());
         // if there is a new animation, load it and set the relevant counters
         match timeout(Duration::from_micros(1), command_receiver.recv()).await {

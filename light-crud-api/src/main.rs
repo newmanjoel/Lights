@@ -16,7 +16,6 @@ use tokio;
 
 use std::sync::Arc;
 
-
 #[tokio::main]
 async fn main() {
     let path = "config.toml";
@@ -39,6 +38,7 @@ async fn main() {
             command_comms_tx,
             timed_brightness_notifier,
             config.day_night.clone(),
+            config.current_data.clone(),
         )));
     }
 

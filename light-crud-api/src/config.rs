@@ -20,8 +20,6 @@ pub struct TOMLConfig {
     pub day_night: DayNightConfig,
 }
 
-
-
 #[derive(Debug)]
 pub struct Config {
     pub database: DatabaseConfig,

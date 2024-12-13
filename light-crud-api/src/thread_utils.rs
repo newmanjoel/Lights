@@ -1,6 +1,5 @@
 use tokio::signal::unix::{signal, SignalKind};
 
-
 #[derive(Debug)]
 pub struct CompactSender<T> {
     pub sending_channel: tokio::sync::mpsc::Sender<T>,
@@ -16,14 +15,12 @@ impl<T> CompactSender<T> {
     }
 }
 
-
-
 #[derive(Debug, Clone)]
 pub struct Notifier<T> {
     pub sending_channel: tokio::sync::watch::Sender<T>,
     pub receving_channel: tokio::sync::watch::Receiver<T>,
 }
-impl <T> Notifier<T> {
+impl<T> Notifier<T> {
     pub fn new(initial_value: T) -> Self {
         let (tx, rx) = tokio::sync::watch::channel(initial_value);
         Notifier {
@@ -43,11 +40,13 @@ impl Notifier<bool> {
         self.sending_channel.send(true).unwrap();
     }
 
-    pub async fn graceful_signal(mut self, wait_for_value: bool) -> (){
-        self.receving_channel.wait_for(|value| *value==wait_for_value).await.unwrap();
+    pub async fn graceful_signal(mut self, wait_for_value: bool) -> () {
+        self.receving_channel
+            .wait_for(|value| *value == wait_for_value)
+            .await
+            .unwrap();
         return;
     }
-
 }
 
 pub async fn wait_for_signals(notify: Notifier<bool>) {
