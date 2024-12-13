@@ -5,21 +5,22 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
+use futures::executor::block_on;
 use std::{collections::HashMap, sync::Arc};
 
 use serde::Serialize;
 use serde_json::{json, Value};
-use sqlx::FromRow;
+use sqlx::{FromRow, Pool, Sqlite};
 
 use crate::database::initialize::AppState;
 
 // use crate::frame::Frame;
 
 const EXAMPLE_DATA: &str = r#"{"frame_data":{"name":"Some String Name","speed":24.0}}"#;
-const GET_SQL_STATEMENT: &str = "SELECT id, name, speed FROM Frame_Metadata WHERE id = ? LIMIT 1";
-const DELETE_SQL_STATEMENT: &str = "DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1";
-const UPDATE_SQL_STATEMENT: &str = "UPDATE Frame_Metadata SET name = ?, speed= ? WHERE id = ?";
-const INSERT_SQL_STATEMENT: &str = "INSERT INTO Frame_Metadata (name, speed) Values(?, ?)";
+// const GET_SQL_STATEMENT: &str = "SELECT id, name, speed FROM Frame_Metadata WHERE id = ? LIMIT 1";
+// const DELETE_SQL_STATEMENT: &str = "DELETE FROM Frame_Metadata WHERE id = ? LIMIT 1";
+// const UPDATE_SQL_STATEMENT: &str = "UPDATE Frame_Metadata SET name = ?, speed= ? WHERE id = ?";
+// const INSERT_SQL_STATEMENT: &str = "INSERT INTO Frame_Metadata (name, speed) Values(?, ?)";
 
 #[derive(Clone, FromRow, Debug, Serialize)]
 pub struct FrameMetadata {
@@ -48,6 +49,73 @@ impl FrameMetadata {
             speed: speed,
         });
     }
+
+    pub fn get_from_db(id: i32, db: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
+        let result = block_on(
+            sqlx::query_as::<_, Self>("SELECT id, name, speed FROM Frame_Metadata WHERE id = ?")
+                .bind(id)
+                .fetch_one(db),
+        );
+        return result;
+    }
+
+    pub fn update_in_db(self: &Self, db: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        let result = block_on(
+            sqlx::query("UPDATE Frame_Metadata SET name = ?, speed= ? WHERE id = ?")
+                .bind(self.name.clone())
+                .bind(self.speed)
+                .bind(self.id)
+                .execute(db),
+        );
+        return match result {
+            Ok(_) => Ok(()),
+            Err(err) => Err(err),
+        };
+    }
+
+    pub fn insert_in_db(self: &Self, db: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
+        let result = block_on(
+            sqlx::query("INSERT INTO Frame_Metadata (name, speed) Values(?, ?)")
+                .bind(self.name.clone())
+                .bind(self.speed)
+                .execute(db),
+        );
+
+        return match result {
+            Ok(value) => Ok({
+                let mut new_frame_metadata = self.clone();
+                new_frame_metadata.id = value.last_insert_rowid() as i32;
+                new_frame_metadata
+            }),
+            Err(err) => Err(err),
+        };
+    }
+
+    pub fn delete_in_db(id: i32, db: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        let result = block_on(
+            sqlx::query("DELETE FROM Frame_Metadata WHERE id = ?")
+                .bind(id)
+                .execute(db),
+        );
+
+        return match result {
+            Ok(_) => Ok(()),
+            Err(err) => Err(err),
+        };
+    }
+
+    #[allow(dead_code)]
+    pub fn get_all_from_db(db: &Pool<Sqlite>) -> Vec<Self> {
+        let frame_meta_results = block_on(
+            sqlx::query_as::<_, FrameMetadata>("SELECT id, name, speed FROM Frame_Metadata")
+                .fetch_all(db),
+        );
+
+        match frame_meta_results {
+            Ok(result) => return result,
+            Err(_) => return Vec::new(),
+        }
+    }
 }
 
 pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> Router {
@@ -64,7 +132,31 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
     return app;
 }
 
+fn extract_json_frame(payload: String) -> Result<FrameMetadata, Response> {
+    let json_payload: Value = match serde_json::from_str(&payload) {
+        Ok(result) => result,
+        Err(error) => return Err((StatusCode::BAD_REQUEST, json!({"error":"parsing json", "payload":payload, "example":EXAMPLE_DATA, "debug":error.to_string()}).to_string()).into_response()),
+    };
+
+    let frame_dict = match json_payload.get("frame_data") {
+        Some(arr) => arr,
+        None => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response())
+        }
+    };
+    let frame: FrameMetadata = match FrameMetadata::extract_from_dict(frame_dict) {
+        Ok(value) => value,
+        Err(value) => return Err((StatusCode::BAD_REQUEST, value.to_string()).into_response()),
+    };
+    return Ok(frame);
+}
+
 pub async fn get_all_frame_data(extract::State(state): extract::State<Arc<AppState>>) -> Response {
+    // TODO: add this to the frame data impl
     let frame_results =
         sqlx::query_as::<_, FrameMetadata>("SELECT id, name, speed FROM Frame_Metadata")
             .fetch_all(&state.db)
@@ -72,80 +164,84 @@ pub async fn get_all_frame_data(extract::State(state): extract::State<Arc<AppSta
 
     match frame_results {
         Ok(value) => return serde_json::to_string(&value).unwrap().into_response(),
-        Err(value) => return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error": value.to_string()}).to_string()).into_response(),
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": value.to_string()}).to_string(),
+            )
+                .into_response()
+        }
     };
-    
 }
 
 pub async fn get_frame_data_id(
-    extract::Path(frame_id): extract::Path<i32>,
+    extract::Path(database_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
 ) -> Response {
-    let frame_results = sqlx::query_as::<_, FrameMetadata>(GET_SQL_STATEMENT)
-        .bind(frame_id)
-        .fetch_one(&state.db)
-        .await;
+    let frame_results = FrameMetadata::get_from_db(database_id, &state.db);
 
     match frame_results {
         Ok(value) => return serde_json::to_string(&value).unwrap().into_response(),
-        Err(value) => return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error": value.to_string()}).to_string()).into_response(),
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": value.to_string()}).to_string(),
+            )
+                .into_response()
+        }
     };
-    
 }
 
 pub async fn delete_frame_data_id(
-    extract::Path(frame_id): extract::Path<i32>,
+    extract::Path(database_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
 ) -> Response {
-    let frame_results = sqlx::query(DELETE_SQL_STATEMENT)
-        .bind(frame_id)
-        .execute(&state.db)
-        .await
-        .unwrap();
+    let delete_results = FrameMetadata::delete_in_db(database_id, &state.db);
 
-    // TODO: Make this handle errors
-
-    return json!({"last insert rowid":frame_results.last_insert_rowid()}).to_string().into_response();
+    match delete_results {
+        Ok(_) => {
+            return json!({"id": format!("{} deleted", database_id)})
+                .to_string()
+                .into_response()
+        }
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error": format!("{error:?}"), "example":EXAMPLE_DATA}).to_string(),
+            )
+                .into_response();
+        }
+    };
 }
 
 pub async fn put_frame_data_id(
-    extract::Path(frame_id): extract::Path<i32>,
+    extract::Path(database_id): extract::Path<i32>,
     extract::State(state): extract::State<Arc<AppState>>,
     payload: String,
 ) -> Response {
-    let json_payload: Value = match serde_json::from_str(&payload) {
-        Ok(result) => result,
-        Err(error) => return (StatusCode::BAD_REQUEST, json!({"error":"parsing json", "payload":payload, "example":EXAMPLE_DATA, "debug":error.to_string()}).to_string()).into_response(),
+    let extracted_frame_data = match extract_json_frame(payload) {
+        Ok(mut value) => {
+            value.id = database_id;
+            value
+        }
+        Err(value) => return value,
     };
 
-    let frame_dict = match extract_frame_from_dict(&json_payload) {
-        Ok(arr) => arr,
-        Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
-    };
-
-    let mut frame: FrameMetadata = match FrameMetadata::extract_from_dict(frame_dict) {
-        Ok(value) => value,
-        Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
-    };
-    frame.id = frame_id;
-
-    let frame_results = sqlx::query(UPDATE_SQL_STATEMENT)
-        .bind(frame.name)
-        .bind(frame.speed)
-        .bind(frame.id)
-        .execute(&state.db)
-        .await;
+    let frame_results = extracted_frame_data.update_in_db(&state.db);
 
     match frame_results {
-        Ok(value) => return json!({"result": format!("{value:?}")}).to_string().into_response(),
-        Err(value) => return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":format!("{value:?}")}).to_string()).into_response(),
-    };
-}
-
-fn extract_frame_from_dict(input_dict: &Value) -> std::result::Result<&Value, Value> {
-    match input_dict.get("frame_data") {
-        Some(arr) => return Ok(arr),
-        None => return Err(json!({"error":"frame_data not found", "example":EXAMPLE_DATA})),
+        Ok(_) => {
+            return serde_json::to_string(&extracted_frame_data)
+                .unwrap()
+                .into_response()
+        }
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error":format!("{value:?}")}).to_string(),
+            )
+                .into_response()
+        }
     };
 }
 
@@ -184,29 +280,19 @@ pub async fn post_frame_data(
     extract::State(state): extract::State<Arc<AppState>>,
     payload: String,
 ) -> Response {
-    let json_payload: Value = match serde_json::from_str(&payload) {
-        Ok(result) => result,
-        Err(error) => return (StatusCode::BAD_REQUEST, json!({"error":"parsing json", "payload":payload, "example":EXAMPLE_DATA, "debug":error.to_string()}).to_string()).into_response(),
-    };
-
-    let frame_dict = match extract_frame_from_dict(&json_payload) {
-        Ok(arr) => arr,
-        Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
-    };
-
-    let frame: FrameMetadata = match FrameMetadata::extract_from_dict(frame_dict) {
+    let extracted_frame_data = match extract_json_frame(payload) {
         Ok(value) => value,
-        Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
+        Err(value) => return value,
     };
-
-    let frame_results = sqlx::query(INSERT_SQL_STATEMENT)
-        .bind(frame.name)
-        .bind(frame.speed)
-        .execute(&state.db)
-        .await;
-
+    let frame_results = extracted_frame_data.insert_in_db(&state.db);
     match frame_results {
-        Ok(stats) => return json!({"id": stats.last_insert_rowid()}).to_string().into_response(),
-        Err(stats) => return (StatusCode::BAD_REQUEST, json!({"error": stats.to_string()}).to_string()).into_response(),
+        Ok(stats) => return json!({"id": stats.id}).to_string().into_response(),
+        Err(stats) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error": stats.to_string()}).to_string(),
+            )
+                .into_response()
+        }
     };
 }
