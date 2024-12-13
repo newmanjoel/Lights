@@ -1,13 +1,15 @@
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 #[allow(dead_code, unused_imports)]
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use toml;
 
-use crate::database::animation::Animation;
+use crate::command::ChangeLighting;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TOMLConfig {
@@ -36,10 +38,43 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub web: WebConfig,
     pub debug: DebugConfig,
-    pub animation_comms: CompactSender<Animation>,
-    pub brightness_comms: CompactSender<u8>,
-    // pub sending_channel: tokio::sync::mpsc::Sender<Animation>,
-    // pub receving_channel: tokio::sync::mpsc::Receiver<Animation>,
+    pub command_comms: CompactSender<ChangeLighting>,
+    pub current_data: CurrentAnimationData,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurrentAnimationData {
+    pub brightness: Arc<Mutex<u8>>,
+    pub animation_index: Arc<Mutex<i32>>,
+    pub frame_index: Arc<Mutex<usize>>,
+    pub animation_speed: Arc<Mutex<f64>>,
+}
+
+impl Default for CurrentAnimationData {
+    fn default() -> Self {
+        CurrentAnimationData {
+            brightness: Arc::new(Mutex::new(100)),
+            animation_index: Arc::new(Mutex::new(0)),
+            frame_index: Arc::new(Mutex::new(0)),
+            animation_speed: Arc::new(Mutex::new(24.0)),
+        }
+    }
+}
+
+impl CurrentAnimationData{
+    pub fn to_json(&self) -> serde_json::Value {
+        let brightness = self.brightness.lock().unwrap();
+        let animation_index = self.animation_index.lock().unwrap();
+        let frame_index = self.frame_index.lock().unwrap();
+        let animation_speed = self.animation_speed.lock().unwrap();
+
+        return json!({
+            "brightness": *brightness,
+            "animation_index": *animation_index,
+            "frame_index": *frame_index,
+            "animation_speed": *animation_speed,
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -87,25 +122,20 @@ impl Default for Config {
             database: DatabaseConfig::default(),
             web: WebConfig::default(),
             debug: DebugConfig::default(),
-            animation_comms: CompactSender::new(),
-            brightness_comms: CompactSender::new(),
-            // sending_channel: tx,
-            // receving_channel: rx,
+            command_comms: CompactSender::new(),
+            current_data: CurrentAnimationData::default(),
         }
     }
 }
 #[allow(dead_code, unused_mut)]
 impl From<TOMLConfig> for Config {
     fn from(a: TOMLConfig) -> Self {
-        // let (tx, mut rx) = tokio::sync::mpsc::channel::<Animation>(32);
         Config {
             database: a.database,
             web: a.web,
             debug: a.debug,
-            animation_comms: CompactSender::new(),
-            brightness_comms: CompactSender::new(),
-            // sending_channel: tx,
-            // receving_channel: rx,
+            command_comms: CompactSender::new(),
+            current_data: CurrentAnimationData::default(),
         }
     }
 }

@@ -5,16 +5,18 @@ use sqlx::{query, Error};
 use std::collections::HashMap;
 use std::path::Path;
 
+use crate::command::ChangeLighting;
 use crate::config::Config;
 
-use super::animation::Animation;
+// use super::animation::Animation;
 use super::{animation, frame, frame_data, location};
 
 #[derive(Clone, Debug)]
 pub struct AppState {
     pub db: SqlitePool,
-    pub send_to_controller: tokio::sync::mpsc::Sender<Animation>,
-    pub send_to_brightness: tokio::sync::mpsc::Sender<u8>,
+    pub send_to_lights: tokio::sync::mpsc::Sender<ChangeLighting>,
+    // pub send_to_controller: tokio::sync::mpsc::Sender<Animation>,
+    // pub send_to_brightness: tokio::sync::mpsc::Sender<u8>,
 }
 
 pub async fn setup(config: &Config) -> Router {
@@ -24,18 +26,24 @@ pub async fn setup(config: &Config) -> Router {
     let pool = get_or_create_sqlite_database(filepath).await.unwrap();
     let state: std::sync::Arc<AppState> = std::sync::Arc::new(AppState {
         db: pool,
-        send_to_controller: config.animation_comms.sending_channel.clone(),
-        send_to_brightness: config.brightness_comms.sending_channel.clone(),
+        send_to_lights: config.command_comms.sending_channel.clone(),
+        // send_to_controller: config.animation_comms.sending_channel.clone(),
+        // send_to_brightness: config.brightness_comms.sending_channel.clone(),
     });
     let frame_routes = frame::router(&mut index, state.clone());
     let frame_data_routes = frame_data::router(&mut index, state.clone());
     let location_routes = location::router(&mut index, state.clone());
     let animation_routes = animation::router(&mut index, state.clone());
+    let current_data = config.current_data.clone();
 
     let app: Router = Router::new()
         .route(
             "/",
             get(|| async move { return serde_json::to_string_pretty(&index).unwrap().to_string() }),
+        )
+        .route(
+            "/current",
+            get(|| async move { return current_data.to_json().to_string()}),
         )
         .nest("/frame", frame_routes)
         .nest("/frame_data", frame_data_routes)

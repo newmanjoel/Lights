@@ -19,6 +19,8 @@ use super::{
     initialize::AppState,
 };
 
+use crate::command::ChangeLighting;
+
 const _EXAMPLE_DATA: &str = r#"
 {
     "animation":{
@@ -178,12 +180,14 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
         .route("/", get(get_animations))
         .route("/:id", get(get_animation_id))
         .route("/:id", delete(delete_animation_id))
-        .route("/brightness/set/:id", post(set_brightness))
+        .route("/set/brightness/:id", post(set_brightness))
+        .route("/set/speed/:fps", post(set_fps))
         .with_state(state);
 
     index.insert("/animation", "GET,POST");
     index.insert("/animation/:id", "GET,DELETE");
-    index.insert("/animation/brightness/set/:value", "POST");
+    index.insert("/animation/set/brightness/:value", "POST");
+    index.insert("/animation/set/speed/:value", "POST");
     return app;
 }
 #[allow(unused_variables)]
@@ -196,13 +200,28 @@ async fn set_brightness(
     State(state): State<Arc<AppState>>,
 ) -> Response {
     state
-        .send_to_brightness
-        .send(brightness_value)
+        .send_to_lights
+        .send(ChangeLighting::Brightness(brightness_value))
         .await
         .unwrap();
     return (
         StatusCode::OK,
         json!({"brightness":brightness_value}).to_string(),
+    )
+        .into_response();
+}
+async fn set_fps(
+    Path(new_fps): Path<f64>,
+    State(state): State<Arc<AppState>>,
+) -> Response {
+    state
+        .send_to_lights
+        .send(ChangeLighting::Speed(new_fps))
+        .await
+        .unwrap();
+    return (
+        StatusCode::OK,
+        json!({"speed":new_fps}).to_string(),
     )
         .into_response();
 }
@@ -262,8 +281,8 @@ pub async fn get_animation_id(
     };
 
     state
-        .send_to_controller
-        .send(ani.clone())
+        .send_to_lights
+        .send(ChangeLighting::Animation(ani.clone()))
         .await
         .expect("Could not send data");
 

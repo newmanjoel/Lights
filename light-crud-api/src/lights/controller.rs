@@ -1,11 +1,10 @@
 // use std::time::Duration;
 
-use std::io;
-use std::io::Write;
+
 use std::time::Duration;
 
 use colored::Colorize;
-use futures::executor::block_on;
+
 // use futures::executor::block_on;
 use rs_ws281x::ChannelBuilder;
 use rs_ws281x::ControllerBuilder;
@@ -15,7 +14,9 @@ use tokio::time::timeout;
 
 use super::converter;
 
-use crate::config::Config;
+use crate::command::ChangeLighting;
+
+use crate::config::CurrentAnimationData;
 use crate::database::animation::Animation;
 use crate::database::frame::DataFrame;
 use crate::thread_utils::NotifyChecker;
@@ -94,8 +95,8 @@ pub fn write_frame(frame: &DataFrame, controller: &mut rs_ws281x::Controller) {
 
 pub async fn light_loop(
     shutdown_notifier: NotifyChecker,
-    mut animation_receiver: tokio::sync::mpsc::Receiver<Animation>,
-    mut brightness_receiver: tokio::sync::mpsc::Receiver<u8>,
+    mut command_receiver: tokio::sync::mpsc::Receiver<ChangeLighting>,
+    current_data: CurrentAnimationData,
 ) -> () {
     println!("Controller: Starting");
     // let shutdown_notify_controller_loop = notifier.clone();
@@ -113,31 +114,45 @@ pub async fn light_loop(
     while !shutdown_notifier.is_notified() {
         // println!("top: {}", shutdown_notifier.is_notified());
         // if there is a new animation, load it and set the relevant counters
-        match timeout(Duration::from_micros(1), animation_receiver.recv()).await {
-            Err(err) => {
+        match timeout(Duration::from_micros(1), command_receiver.recv()).await {
+            Err(_err) => {
                 // println!("animation: {err}");
             }
             Ok(value) => match value {
+                // this is an enum. So all of the values are garenteed to be correct?
                 None => println!("Error on the animation receive"),
-                Some(frame) => {
-                    working_animation = frame;
-                    working_index = 0;
-                    working_frame_size = working_animation.frames.len();
-                    working_time = (1000.0 / working_animation.speed) as u64;
-                    println!("setting the loop time to {working_time:?}ms for {} fps", working_animation.speed);
-                }
-            },
-        }
-        match timeout(Duration::from_micros(1), brightness_receiver.recv()).await {
-            Err(err) => {
-                // println!("brightness: {err}");
-            }
-            Ok(value) => match value {
-                None => println!("Error on the animation receive"),
-                Some(brightness_value) => {
-                    controller.set_brightness(0, brightness_value);
-                    controller.set_brightness(1, brightness_value);
-                    println!("Setting the Brightness to {}", brightness_value);
+                Some(command_type) => match command_type{
+                    ChangeLighting::Animation(new_animation) => {
+                        working_animation = new_animation;
+                        working_index = 0;
+                        working_frame_size = working_animation.frames.len();
+                        working_time = (1000.0 / working_animation.speed) as u64;
+                        println!("setting the loop time to {working_time:?}ms for {} fps", working_animation.speed);
+                        
+                        let mut ani_index = current_data.animation_index.lock().unwrap();
+                        *ani_index = working_animation.id;
+                        let mut ani_speed = current_data.animation_speed.lock().unwrap();
+                        *ani_speed = working_animation.speed;
+                        // Do I have to do anything to unlock the mutex? or will it do that as soon as its dropped from scope?
+
+                    },
+                    ChangeLighting::Brightness(new_brightness) => {
+                        controller.set_brightness(0, new_brightness);
+                        controller.set_brightness(1, new_brightness);
+                        println!("Setting the Brightness to {}", new_brightness);
+                        
+                        let mut brightness = current_data.brightness.lock().unwrap();
+                        *brightness = new_brightness;
+                        
+                    }
+                    ChangeLighting::Speed(new_fps) => {
+                        working_time = (1000.0 / new_fps) as u64;
+                        let mut ani_speed = current_data.animation_speed.lock().unwrap();
+                        *ani_speed = new_fps;
+                        println!("setting the loop time to {working_time:?}ms for {} fps", new_fps);
+                    }
+
+                    
                 }
             },
         }
@@ -146,6 +161,10 @@ pub async fn light_loop(
         working_index += 1;
         working_index = working_index % working_frame_size;
         write_frame(working_frame, &mut controller);
+        {
+            let mut index = current_data.frame_index.lock().unwrap();
+            *index = working_index;
+        }
         std::thread::sleep(Duration::from_millis(working_time));
         // tokio::time::sleep(Duration::from_millis(working_time)).await;
         // println!("bottom: {}", shutdown_notifier.is_notified());

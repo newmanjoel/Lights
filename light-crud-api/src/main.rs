@@ -1,16 +1,17 @@
+mod command;
 mod config;
 mod database;
 mod lights;
 mod thread_utils;
 
 use config::read_or_create_config;
-use futures::executor::block_on;
+
 use thread_utils::NotifyChecker;
 
 use tokio;
 use tokio::sync::Notify;
 
-use colored::*;
+
 use std::sync::Arc;
 
 // Function to await the shutdown signal
@@ -35,9 +36,10 @@ async fn main() {
 
     if config.debug.enable_timed_brightness {
         let timed_brightness_notifier = notifier.clone();
-        let brightness_tx = config.brightness_comms.sending_channel.clone();
+        // let brightness_tx = config.brightness_comms.sending_channel.clone();
+        let command_comms_tx = config.command_comms.sending_channel.clone();
         threads.push(tokio::spawn(thread_utils::timed_brightness(
-            brightness_tx,
+            command_comms_tx,
             timed_brightness_notifier,
         )));
     }
@@ -68,17 +70,19 @@ async fn main() {
     }
     if config.debug.enable_lights {
         let light_shutdown_notifier = notifier.clone();
-        let animation_comms_rx = config.animation_comms.receving_channel;
-        let brightness_comms_rx = config.brightness_comms.receving_channel;
+        // let animation_comms_rx = config.animation_comms.receving_channel;
+        // let brightness_comms_rx = config.brightness_comms.receving_channel;
+        let command_comms_rx = config.command_comms.receving_channel;
+        let current_data = config.current_data.clone();
         use lights::controller::light_loop;
-        
+
         light_loop(
             light_shutdown_notifier,
-            animation_comms_rx,
-            brightness_comms_rx,
+            command_comms_rx,
+            current_data,
         )
         .await;
-   
+
         // threads.push(handle);
     } else {
         println!("Not Starting Lighting Controller");
