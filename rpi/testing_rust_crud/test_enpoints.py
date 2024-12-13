@@ -43,21 +43,28 @@ def call_crud_endpoints(base_url):
     #     print("Delete Response:", delete_response.json())
 
 def create_animation() -> None:
-    create_response = requests.post(f"{base_url}/frame_data", json={"frame_data": {"name":"Rolling Fading white", "speed":24}})
+    create_response = requests.post(f"{base_url}/frame_data", json={"frame_data": {"name":"Light Blue with Fading white", "speed":10}})
     if create_response.status_code != 200:
         print("ERROR:", create_response.json())
         # return 
     working_id: int= create_response.json().get("id", 1)
     print(f"{create_response.json()=}")
-    working_arr = [to_u32(217,51,0)] * 250
-    red_lin = np.linspace(217,255,20).astype(int).tolist()
-    green_lin = np.linspace(51,255,20).astype(int).tolist()
-    blue_lin = np.linspace(0,255,20).astype(int).tolist()
+    # basics
+    led_num = 250
+    fade_amount = 20
+    # setting the base color
+    orange = (217,51,0)
+    light_blue = (4,82,128)
+    working_color = light_blue
+    working_arr = [to_u32(*working_color)] * led_num
+    red_lin = np.linspace(working_color[0],255,fade_amount).astype(int).tolist()
+    green_lin = np.linspace(working_color[1],255,fade_amount).astype(int).tolist()
+    blue_lin = np.linspace(working_color[2],255,fade_amount).astype(int).tolist()
     for index, (r,g,b) in enumerate(list(zip(red_lin, green_lin, blue_lin))):
         working_arr[index] = to_u32(r,g,b)
     working_arr = np.roll(working_arr, 20, axis=0).astype(int).tolist()
     
-    for frame_id in range(1,251):
+    for frame_id in range(1,led_num+1):
         frame_response = requests.post(f"{base_url}/frame", json={"frame": {"frame_id":frame_id,"parent_id":working_id,"data":str(working_arr)}})
         if frame_response.status_code != 200:
             print("ERROR:", create_response.json())

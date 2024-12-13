@@ -7,6 +7,8 @@ led_num = 250
 pixels = neopixel.NeoPixel(
     board.D12, led_num, bpp=3, auto_write=False, pixel_order=neopixel.GRB
 )
+
+# I wonder if I can set the order to neopixel.RGB ... 
 import numpy as np
 
 # remember grb
