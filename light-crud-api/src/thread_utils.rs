@@ -1,43 +1,56 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
 use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::Notify;
+
+
+#[derive(Debug)]
+pub struct CompactSender<T> {
+    pub sending_channel: tokio::sync::mpsc::Sender<T>,
+    pub receving_channel: tokio::sync::mpsc::Receiver<T>,
+}
+impl<T> CompactSender<T> {
+    pub fn new() -> Self {
+        let (tx, rx) = tokio::sync::mpsc::channel::<T>(32);
+        CompactSender {
+            sending_channel: tx,
+            receving_channel: rx,
+        }
+    }
+}
+
+
 
 #[derive(Debug, Clone)]
-pub struct NotifyChecker {
-    pub flag: Arc<AtomicBool>,
-    pub notify: Arc<Notify>,
+pub struct Notifier<T> {
+    pub sending_channel: tokio::sync::watch::Sender<T>,
+    pub receving_channel: tokio::sync::watch::Receiver<T>,
+}
+impl <T> Notifier<T> {
+    pub fn new(initial_value: T) -> Self {
+        let (tx, rx) = tokio::sync::watch::channel(initial_value);
+        Notifier {
+            sending_channel: tx,
+            receving_channel: rx,
+        }
+    }
 }
 
 #[allow(dead_code)]
-impl NotifyChecker {
-    pub fn new() -> Self {
-        Self {
-            flag: Arc::new(AtomicBool::new(false)),
-            notify: Arc::new(Notify::new()),
-        }
-    }
-
-    pub fn _new_with_existing_notify(existing_notify: Arc<Notify>) -> Self {
-        Self {
-            flag: Arc::new(AtomicBool::new(false)),
-            notify: existing_notify,
-        }
+impl Notifier<bool> {
+    pub fn new_flag() -> Self {
+        return Self::new(false);
     }
 
     pub fn set_notified(&self) {
-        self.flag.store(true, Ordering::SeqCst);
-        self.notify.notify_one();
+        self.sending_channel.send(true).unwrap();
     }
 
-    pub fn is_notified(&self) -> bool {
-        self.flag.load(Ordering::SeqCst)
+    pub async fn graceful_signal(mut self, wait_for_value: bool) -> (){
+        self.receving_channel.wait_for(|value| *value==wait_for_value).await.unwrap();
+        return;
     }
+
 }
 
-pub async fn wait_for_signals(notify: NotifyChecker) {
+pub async fn wait_for_signals(notify: Notifier<bool>) {
     let mut interrupt = signal(SignalKind::interrupt()).unwrap();
     let mut terminate = signal(SignalKind::terminate()).unwrap();
 

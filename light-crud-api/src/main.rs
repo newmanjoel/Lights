@@ -9,19 +9,13 @@ use config::read_or_create_config;
 
 use database::animation::Animation;
 use database::initialize::AppState;
-use thread_utils::NotifyChecker;
+use thread_utils::Notifier;
 
 use timed::timing::timed_brightness;
 use tokio;
-use tokio::sync::Notify;
 
 use std::sync::Arc;
 
-// Function to await the shutdown signal
-async fn wait_for_shutdown(notify: Arc<Notify>) {
-    notify.notified().await;
-    println!("wait_for_shutdown: Shutdown signal received. Closing server...");
-}
 
 #[tokio::main]
 async fn main() {
@@ -30,7 +24,7 @@ async fn main() {
     let mut app_state: Option<Arc<AppState>> = None;
     println!("{config:?}\n\n");
 
-    let notifier = NotifyChecker::new();
+    let notifier = Notifier::new_flag();
 
     // Spawn a task to listen for a shutdown signal (e.g., Ctrl+C)
     let shutdown_signal_notifier = notifier.clone();
@@ -61,7 +55,7 @@ async fn main() {
         let handle = tokio::spawn(async move {
             println!("{}", "Webserver: Starting");
             axum::serve(listener, app.into_make_service())
-                .with_graceful_shutdown(wait_for_shutdown(shutdown_notify_web_server.notify))
+                .with_graceful_shutdown(shutdown_notify_web_server.graceful_signal(true))
                 .await
                 .unwrap();
             println!("{}", "Webserver: Stopped");
@@ -107,7 +101,7 @@ async fn main() {
     if !config.module_enable.lights {
         let shutdown_notify_main_loop = notifier.clone();
         println!("Press Ctrl + C to end the program.");
-        wait_for_shutdown(shutdown_notify_main_loop.notify).await;
+        shutdown_notify_main_loop.graceful_signal(true).await;
     }
     for thread in threads {
         println!("{thread:?}");

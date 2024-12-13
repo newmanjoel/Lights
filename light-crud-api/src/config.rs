@@ -10,6 +10,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use toml;
 
 use crate::command::ChangeLighting;
+use crate::thread_utils::CompactSender;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TOMLConfig {
@@ -19,20 +20,7 @@ pub struct TOMLConfig {
     pub day_night: DayNightConfig,
 }
 
-#[derive(Debug)]
-pub struct CompactSender<T> {
-    pub sending_channel: tokio::sync::mpsc::Sender<T>,
-    pub receving_channel: tokio::sync::mpsc::Receiver<T>,
-}
-impl<T> CompactSender<T> {
-    pub fn new() -> Self {
-        let (tx, rx) = tokio::sync::mpsc::channel::<T>(32);
-        CompactSender {
-            sending_channel: tx,
-            receving_channel: rx,
-        }
-    }
-}
+
 
 #[derive(Debug)]
 pub struct Config {

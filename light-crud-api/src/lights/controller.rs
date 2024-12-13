@@ -18,7 +18,8 @@ use crate::command::ChangeLighting;
 use crate::config::CurrentAnimationData;
 use crate::database::animation::Animation;
 use crate::database::frame::DataFrame;
-use crate::thread_utils::NotifyChecker;
+// use crate::thread_utils::NotifyChecker;
+use crate::thread_utils::Notifier;
 
 const FRONT_OF_HOUSE_CHANNEL: usize = 1;
 const FRONT_OF_HOUSE_PIN: i32 = 19;
@@ -101,7 +102,7 @@ pub fn write_frame(frame: &DataFrame, controller: &mut rs_ws281x::Controller) {
 }
 
 pub async fn light_loop(
-    shutdown_notifier: NotifyChecker,
+    mut shutdown_notifier: Notifier<bool>,
     mut command_receiver: tokio::sync::mpsc::Receiver<ChangeLighting>,
     current_data: CurrentAnimationData,
 ) -> () {
@@ -118,7 +119,7 @@ pub async fn light_loop(
     let mut working_index = 0;
     let mut working_frame_size = 1;
     let mut working_time = (1000.0 / working_animation.speed) as u64;
-    while !shutdown_notifier.is_notified() {
+    while  ! *shutdown_notifier.receving_channel.borrow_and_update(){
         // println!("top: {}", shutdown_notifier.is_notified());
         // if there is a new animation, load it and set the relevant counters
         match timeout(Duration::from_micros(1), command_receiver.recv()).await {

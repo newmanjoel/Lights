@@ -3,7 +3,8 @@ use std::sync::{Arc, Mutex};
 use chrono::{Local, Timelike};
 use std::time::Duration;
 
-use crate::{command::ChangeLighting, config::DayNightConfig, thread_utils::NotifyChecker};
+use crate::{command::ChangeLighting, config::DayNightConfig};
+use crate::thread_utils::Notifier;
 
 struct TimedBrightness {
     hour: u32,
@@ -37,13 +38,13 @@ fn get_day_night(time_config: &Arc<Mutex<DayNightConfig>>) -> (TimedBrightness, 
 
 pub async fn timed_brightness(
     sender: tokio::sync::mpsc::Sender<ChangeLighting>,
-    shutdown: NotifyChecker,
+    mut shutdown: Notifier<bool>,
     time_config: Arc<Mutex<DayNightConfig>>,
 ) {
     // let night_brightness: u8 = 100;
     // let day_brightness: u8 = 1;
     println!("Timed Brightness: Starting");
-    while !shutdown.is_notified() {
+    while ! *shutdown.receving_channel.borrow_and_update() {
         let now = Local::now();
 
         let (day, night) = get_day_night(&time_config);
