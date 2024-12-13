@@ -1,0 +1,19 @@
+[package]
+name = "light-crud-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+openssl = { version = "0.10.35", features = ["vendored"] }
+axum = "0.7.7"
+chrono = "0.4.38"
+futures = "0.3.31"
+rs_ws281x = "0.5.1"
+serde = "1.0.214"
+serde_derive = "1.0.214"
+serde_json = "1.0.132"
+sqlx = {version="0.8.2", features=["runtime-tokio-native-tls","sqlite"]}
+tokio = {version="1.41.1", features=["macros","rt-multi-thread","signal","time"]}
+toml = "0.8.19"
+ws281x = "0.1.0"
+colored = "2.1.0"
