@@ -1,16 +1,10 @@
-use chrono::{Local, Timelike};
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::Notify;
 
-use crate::command::ChangeLighting;
-// use chrono::DateTime;
 
 #[derive(Debug, Clone)]
 pub struct NotifyChecker {
@@ -54,22 +48,4 @@ pub async fn wait_for_signals(notify: NotifyChecker) {
     }
     notify.set_notified();
     println!("Wait for Signal: Send and Stopping")
-}
-
-pub async fn timed_brightness(sender: tokio::sync::mpsc::Sender<ChangeLighting>, shutdown: NotifyChecker) {
-    let night_brightness: u8 = 100;
-    let day_brightness: u8 = 1;
-    println!("Timed Brightness: Starting");
-    while !shutdown.is_notified() {
-        let now = Local::now();
-        if now.time().hour() > 15 {
-            sender.send(ChangeLighting::Brightness(night_brightness)).await.unwrap();
-            // sender.send(night_brightness).await.unwrap();
-        } else if now.time().hour() > 6 {
-            sender.send(ChangeLighting::Brightness(day_brightness)).await.unwrap();
-            // sender.send(day_brightness).await.unwrap();
-        }
-        tokio::time::sleep(Duration::from_secs(10)).await;
-    }
-    println!("Timed Brightness: Stopped");
 }

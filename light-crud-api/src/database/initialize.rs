@@ -4,6 +4,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
 use sqlx::{query, Error};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::command::ChangeLighting;
 use crate::config::Config;
@@ -19,12 +20,12 @@ pub struct AppState {
     // pub send_to_brightness: tokio::sync::mpsc::Sender<u8>,
 }
 
-pub async fn setup(config: &Config) -> Router {
+pub async fn setup(config: &Config) -> (Router, Arc<AppState>) {
     let mut index: HashMap<&'static str, &str> = HashMap::new();
 
     let filepath = Path::new(config.database.file_path.as_str());
     let pool = get_or_create_sqlite_database(filepath).await.unwrap();
-    let state: std::sync::Arc<AppState> = std::sync::Arc::new(AppState {
+    let state: Arc<AppState> = Arc::new(AppState {
         db: pool,
         send_to_lights: config.command_comms.sending_channel.clone(),
         // send_to_controller: config.animation_comms.sending_channel.clone(),
@@ -50,7 +51,7 @@ pub async fn setup(config: &Config) -> Router {
         .nest("/location", location_routes)
         .nest("/animation", animation_routes);
 
-    return app;
+    return (app, state.clone());
 }
 
 pub async fn get_or_create_sqlite_database(filepath: &Path) -> Result<SqlitePool, Error> {

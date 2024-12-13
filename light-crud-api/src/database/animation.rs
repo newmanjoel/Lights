@@ -180,14 +180,16 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
         .route("/", get(get_animations))
         .route("/:id", get(get_animation_id))
         .route("/:id", delete(delete_animation_id))
-        .route("/set/brightness/:id", post(set_brightness))
-        .route("/set/speed/:fps", post(set_fps))
+        .route("/:id", post(set_animation))
+        .route("/brightness/:id", post(set_brightness))
+        .route("/speed/:fps", post(set_fps))
         .with_state(state);
 
     index.insert("/animation", "GET,POST");
-    index.insert("/animation/:id", "GET,DELETE");
-    index.insert("/animation/set/brightness/:value", "POST");
-    index.insert("/animation/set/speed/:value", "POST");
+    index.insert("/animation/:id", "GET,DELETE,POST");
+    index.insert("/animation/brightness/:value", "POST");
+    index.insert("/animation/speed/:value", "POST");
+    // index.insert("/animation/:id", "POST");
     return app;
 }
 #[allow(unused_variables)]
@@ -266,6 +268,24 @@ async fn get_animations(State(state): State<Arc<AppState>>) -> Response {
 /// Resonse Object. {"animation":{"frame_data": meta_frame,"frames":number_of_frames,}}
 ///
 pub async fn get_animation_id(
+    Path(frame_id): Path<i32>,
+    State(state): State<Arc<AppState>>,
+) -> Response {
+    let ani = match Animation::get_from_db(frame_id, &state.db) {
+        Ok(value) => value,
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": value.to_string()}).to_string(),
+            )
+                .into_response()
+        }
+    };
+
+    return (StatusCode::OK, json!({"animation":ani}).to_string()).into_response();
+}
+
+pub async fn set_animation(
     Path(frame_id): Path<i32>,
     State(state): State<Arc<AppState>>,
 ) -> Response {

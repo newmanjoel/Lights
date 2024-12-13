@@ -15,7 +15,8 @@ use crate::command::ChangeLighting;
 pub struct TOMLConfig {
     pub database: DatabaseConfig,
     pub web: WebConfig,
-    pub debug: DebugConfig,
+    pub modules: LoadModuleConfig,
+    pub day_night: DayNightConfig,
 }
 
 #[derive(Debug)]
@@ -37,10 +38,12 @@ impl<T> CompactSender<T> {
 pub struct Config {
     pub database: DatabaseConfig,
     pub web: WebConfig,
-    pub debug: DebugConfig,
+    pub module_enable: LoadModuleConfig,
     pub command_comms: CompactSender<ChangeLighting>,
     pub current_data: CurrentAnimationData,
+    pub day_night: Arc<Mutex<DayNightConfig>>,
 }
+// file_path = "/home/pi/Lights/db/sqlite.db"
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CurrentAnimationData {
@@ -82,13 +85,31 @@ pub struct DatabaseConfig {
     pub file_path: String,
 }
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub struct DebugConfig {
+pub struct LoadModuleConfig {
     pub on_raspberry_pi: bool,
-    pub enable_webserver: bool,
-    pub enable_lights: bool,
-    pub enable_timed_brightness: bool,
+    pub webserver: bool,
+    pub lights: bool,
+    pub timed_brightness: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DayNightConfig {
+    pub day_hour: u32,
+    pub day_brightness: u8,
+    pub night_hour: u32,
+    pub night_brightness: u8
+}
+
+impl Default for DayNightConfig {
+    fn default() -> Self {
+        DayNightConfig {
+            day_hour: 6,
+            day_brightness: 1,
+            night_hour: 16,
+            night_brightness: 100,
+        }
+    }
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WebConfig {
     pub port: i32,
@@ -103,13 +124,13 @@ impl Default for WebConfig {
         }
     }
 }
-impl Default for DebugConfig {
+impl Default for LoadModuleConfig {
     fn default() -> Self {
-        DebugConfig {
+        LoadModuleConfig {
             on_raspberry_pi: false,
-            enable_webserver: false,
-            enable_lights: false,
-            enable_timed_brightness: false,
+            webserver: false,
+            lights: false,
+            timed_brightness: false,
         }
     }
 }
@@ -121,9 +142,10 @@ impl Default for Config {
         Config {
             database: DatabaseConfig::default(),
             web: WebConfig::default(),
-            debug: DebugConfig::default(),
+            module_enable: LoadModuleConfig::default(),
             command_comms: CompactSender::new(),
             current_data: CurrentAnimationData::default(),
+            day_night: Arc::new(Mutex::new(DayNightConfig::default())),
         }
     }
 }
@@ -133,9 +155,10 @@ impl From<TOMLConfig> for Config {
         Config {
             database: a.database,
             web: a.web,
-            debug: a.debug,
+            module_enable: a.modules,
             command_comms: CompactSender::new(),
             current_data: CurrentAnimationData::default(),
+            day_night: Arc::new(Mutex::new(a.day_night)),
         }
     }
 }
