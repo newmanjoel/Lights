@@ -1,35 +1,29 @@
+mod config;
 mod database;
 mod lights;
 mod thread_utils;
 
-mod config;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::time::Duration;
-
 use config::read_or_create_config;
-// use database::frame::Frame;
-
-use database::animation::Animation;
 use futures::executor::block_on;
 use thread_utils::NotifyChecker;
-use tokio;
 
-// use tokio::sync::mpsc;
+use tokio;
 use tokio::sync::Notify;
-use tokio::time::timeout;
+
+use colored::*;
+use std::sync::Arc;
 
 // Function to await the shutdown signal
 async fn wait_for_shutdown(notify: Arc<Notify>) {
     notify.notified().await;
-    println!("Shutdown signal received. Closing server...");
+    println!("wait_for_shutdown: Shutdown signal received. Closing server...");
 }
 
 #[tokio::main]
 async fn main() {
     let path = "config.toml";
     let config = read_or_create_config(path).unwrap();
-    println!("{config:?}");
+    println!("{config:?}\n\n");
 
     let notifier = NotifyChecker::new();
 
@@ -37,17 +31,18 @@ async fn main() {
     let shutdown_signal_notifier = notifier.clone();
     tokio::spawn(thread_utils::wait_for_signals(shutdown_signal_notifier));
 
+    let mut threads = Vec::new();
+
     if config.debug.enable_timed_brightness {
         let timed_brightness_notifier = notifier.clone();
         let brightness_tx = config.brightness_comms.sending_channel.clone();
-        tokio::spawn(thread_utils::timed_brightness(
+        threads.push(tokio::spawn(thread_utils::timed_brightness(
             brightness_tx,
             timed_brightness_notifier,
-        ));
+        )));
     }
 
     if config.debug.enable_webserver {
-        println!("Starting Webserver ... ");
         let shutdown_notify_web_server = notifier.clone();
 
         let app = database::initialize::setup(&config).await;
@@ -56,66 +51,35 @@ async fn main() {
             tokio::net::TcpListener::bind(format!("{}:{}", config.web.interface, config.web.port))
                 .await
                 .unwrap();
-        let _handle = tokio::spawn(async move {
-            println!("Inside the tokio thread");
+        let handle = tokio::spawn(async move {
+            println!("{}", "Webserver: Starting");
             axum::serve(listener, app.into_make_service())
                 .with_graceful_shutdown(wait_for_shutdown(shutdown_notify_web_server.notify))
                 .await
                 .unwrap();
+            println!("{}", "Webserver: Stopped");
         });
+        threads.push(handle);
         // .await
         // .expect("Webserver errored out");
-        println!("Started Webserver ... ");
+        println!("Webserver: Started");
     } else {
-        println!("Not Starting Webserver");
+        println!("Controller: N/A");
     }
     if config.debug.enable_lights {
-        println!("Starting Controller loop ... ");
-        let shutdown_notify_controller_loop = notifier.clone();
-        let mut animation_receiver = config.animation_comms.receving_channel;
-        let mut brightness_receiver = config.brightness_comms.receving_channel;
-        println!("in the controller thread");
-
-        let mut controller = lights::controller::setup();
-        let looping_flag = shutdown_notify_controller_loop.flag.clone();
-
-        let mut working_animation = Animation::new_with_single_frame(255);
-        let mut working_index = 0;
-        let mut working_frame_size = 1;
-        let mut working_time = 20;
-        while !looping_flag.load(Ordering::Relaxed) {
-            // if there is a new animation, load it and set the relevant counters
-            match timeout(Duration::from_micros(1), animation_receiver.recv()).await {
-                Err(_) => {}
-                Ok(value) => match value {
-                    None => println!("Error on the animation receive"),
-                    Some(frame) => {
-                        working_animation = frame;
-                        working_index = 0;
-                        working_frame_size = working_animation.frames.len();
-                        working_time = (1000.0 / working_animation.speed) as u64;
-                        println!("{working_time:?}ms vs {}", working_animation.speed);
-                    }
-                },
-            }
-            match timeout(Duration::from_micros(1), brightness_receiver.recv()).await {
-                Err(_) => {}
-                Ok(value) => match value {
-                    None => println!("Error on the animation receive"),
-                    Some(brightness_value) => {
-                        controller.set_brightness(0, brightness_value);
-                        println!("Setting the Brightness to {}", brightness_value);
-                    }
-                },
-            }
-
-            let working_frame = &working_animation.frames[working_index];
-            working_index += 1;
-            working_index = working_index % working_frame_size;
-            lights::controller::write_frame(working_frame, &mut controller);
-            block_on(tokio::time::sleep(Duration::from_millis(working_time)));
-        }
-        println!("Stopping Controller Loop ...");
+        let light_shutdown_notifier = notifier.clone();
+        let animation_comms_rx = config.animation_comms.receving_channel;
+        let brightness_comms_rx = config.brightness_comms.receving_channel;
+        use lights::controller::light_loop;
+        
+        light_loop(
+            light_shutdown_notifier,
+            animation_comms_rx,
+            brightness_comms_rx,
+        )
+        .await;
+   
+        // threads.push(handle);
     } else {
         println!("Not Starting Lighting Controller");
     }
@@ -124,6 +88,13 @@ async fn main() {
         let shutdown_notify_main_loop = notifier.clone();
         println!("Press Ctrl + C to end the program.");
         wait_for_shutdown(shutdown_notify_main_loop.notify).await;
+    }
+    for thread in threads {
+        println!("{thread:?}");
+        if thread.is_finished() {
+            println!("Finished: {thread:?}");
+        }
+        thread.await.unwrap();
     }
     println!("Ending Program ... ")
 }

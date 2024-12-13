@@ -45,7 +45,7 @@ pub struct Animation {
     pub speed: f64,
     pub frames: Vec<DataFrame>,
 }
-#[allow(dead_code,unused_variables)]
+#[allow(dead_code, unused_variables)]
 impl Animation {
     pub fn new() -> Self {
         Animation {
@@ -130,10 +130,15 @@ impl Animation {
                 Ok(_) => {
                     result.entry("frames_deleted").and_modify(|e| *e += 1);
                 }
-                Err(error) => return {
-                    println!("{}",json!({"hashmap": result, "error": error.to_string()}).to_string()); 
-                    Err(error)
-                },
+                Err(error) => {
+                    return {
+                        println!(
+                            "{}",
+                            json!({"hashmap": result, "error": error.to_string()}).to_string()
+                        );
+                        Err(error)
+                    }
+                }
             }
         }
         let parent_data_result = FrameMetadata::delete_in_db(id, db);
@@ -142,10 +147,15 @@ impl Animation {
             Ok(_) => {
                 result.entry("frame_data_deleted").and_modify(|e| *e += 1);
             }
-            Err(error) => return {
-                println!("{}",json!({"hashmap": result, "error": error.to_string()}).to_string()); 
-                Err(error)
-            },
+            Err(error) => {
+                return {
+                    println!(
+                        "{}",
+                        json!({"hashmap": result, "error": error.to_string()}).to_string()
+                    );
+                    Err(error)
+                }
+            }
         };
         return Ok(result);
     }

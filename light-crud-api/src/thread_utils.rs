@@ -51,21 +51,21 @@ pub async fn wait_for_signals(notify: NotifyChecker) {
         _ = terminate.recv() => println!("Received SIGTERM, shutting down..."),
     }
     notify.set_notified();
-    println!("Sent Notify Command")
+    println!("Wait for Signal: Send and Stopping")
 }
 
 pub async fn timed_brightness(sender: tokio::sync::mpsc::Sender<u8>, shutdown: NotifyChecker) {
     let night_brightness: u8 = 100;
     let day_brightness: u8 = 1;
-    println!("Starting up timed brightness thread");
+    println!("Timed Brightness: Starting");
     while !shutdown.is_notified() {
         let now = Local::now();
-        if now.time().hour() > 17 {
+        if now.time().hour() > 15 {
             sender.send(night_brightness).await.unwrap();
         } else if now.time().hour() > 6 {
             sender.send(day_brightness).await.unwrap();
         }
         tokio::time::sleep(Duration::from_secs(10)).await;
     }
-    println!("Shutting down the timed brightness thread");
+    println!("Timed Brightness: Stopped");
 }
