@@ -6,7 +6,7 @@ use axum::{
     Router,
 };
 use futures::executor::block_on;
-use std::{collections::HashMap, sync::Arc};
+use std::{any::type_name, collections::HashMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -104,10 +104,15 @@ impl Frame {
             None => return Err(json!({"error":format!("could not find frame_id")})),
         };
         let data_str = match dict.get("data") {
+            // need to parse on value data type
+
             Some(value) => match value.as_str() {
                 Some(value) => value,
                 None => {
-                    return Err(json!({"error":format!("could not convert data entry to a str")}))
+                    return Err(json!({
+                        "error":format!("could not convert data entry to a str"), 
+                        "debug":format!("passed in value was of type: {}","serde_json::value::Value") 
+                    }))
                 }
             },
             None => return Err(json!({"error":format!("could not find data")})),
@@ -203,6 +208,11 @@ impl Frame {
             Ok(value) => return value.iter().map(|e| Frame::from_row(e).unwrap()).collect(),
         };
     }
+}
+
+
+fn type_of<T>(_: &T) -> &'static str{
+    return type_name::<T>();
 }
 
 pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> Router {

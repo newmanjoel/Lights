@@ -1,7 +1,8 @@
 use std::sync::{Arc, Mutex};
+use tokio::time::{self, Duration};
 
 use chrono::{Local, Timelike};
-use std::time::Duration;
+// use std::time::Duration;
 
 use crate::config::CurrentAnimationData;
 use crate::thread_utils::Notifier;
@@ -47,29 +48,42 @@ pub async fn timed_brightness(
     // let day_brightness: u8 = 1;
     println!("Timed Brightness: Starting");
     let mut desired_brightness: Option<u8> = None;
-    while !*shutdown.receving_channel.borrow_and_update() {
-        let now = Local::now();
-        let (day, night) = get_day_night(&time_config);
 
-        if now.time().hour() > night.hour {
-            desired_brightness = Some(night.brightness);
-        } else if now.time().hour() > day.hour {
-            desired_brightness = Some(day.brightness);
-        }
-        match desired_brightness {
-            Some(brightness) => {
-                let current_brightness = { *current_data.brightness.lock().unwrap() };
-                if brightness != current_brightness {
-                    sender
-                        .send(ChangeLighting::Brightness(brightness))
-                        .await
-                        .unwrap();
+    while !*shutdown.receving_channel.borrow_and_update() {
+        let timeout = time::sleep(Duration::from_secs(10));
+
+        tokio::select! {
+            _ = timeout=> {
+                let now = Local::now();
+                let (day, night) = get_day_night(&time_config);
+                // default night.hour is 15 (or 3 pm )
+                // default day.hour is 6 (or 6 am)
+                if now.time().hour() > night.hour {
+                    desired_brightness = Some(night.brightness);
+                } else if now.time().hour() > day.hour {
+                    desired_brightness = Some(day.brightness);
                 }
+                match desired_brightness {
+                    Some(brightness) => {
+                        let current_brightness = *current_data.brightness.receving_channel.borrow();
+                        let enabled= time_config.lock().unwrap().enabled;
+                        if brightness != current_brightness && enabled {
+                            sender
+                                .send(ChangeLighting::Brightness(brightness))
+                                .await
+                                .unwrap();
+                        }
+                    }
+                    None => {}
+                }
+                desired_brightness = None;
+                }
+
+            _ = shutdown.receving_channel.changed() =>{
+                println!("Shutdown signal changed");
             }
-            None => {}
+
         }
-        desired_brightness = None;
-        tokio::time::sleep(Duration::from_secs(10)).await;
     }
     println!("Timed Brightness: Stopped");
 }

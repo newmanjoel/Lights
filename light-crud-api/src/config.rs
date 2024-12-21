@@ -1,16 +1,27 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+
+use axum::{
+    extract,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::{delete, get, post, put},
+    Router,
+};
 
 #[allow(dead_code, unused_imports)]
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use toml;
 
 use crate::command::ChangeLighting;
-use crate::thread_utils::CompactSender;
+use crate::database::initialize::AppState;
+use crate::thread_utils::{CompactSender, Notifier};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TOMLConfig {
@@ -31,37 +42,37 @@ pub struct Config {
 }
 // file_path = "/home/pi/Lights/db/sqlite.db"
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct CurrentAnimationData {
-    pub brightness: Arc<Mutex<u8>>,
-    pub animation_index: Arc<Mutex<i32>>,
-    pub frame_index: Arc<Mutex<usize>>,
-    pub animation_speed: Arc<Mutex<f64>>,
+    pub brightness: Notifier<u8>,
+    pub animation_index: Notifier<i32>,
+    pub frame_index: Notifier<usize>,
+    pub animation_speed: Notifier<f64>,
 }
 
 impl Default for CurrentAnimationData {
     fn default() -> Self {
         CurrentAnimationData {
-            brightness: Arc::new(Mutex::new(100)),
-            animation_index: Arc::new(Mutex::new(0)),
-            frame_index: Arc::new(Mutex::new(0)),
-            animation_speed: Arc::new(Mutex::new(24.0)),
+            brightness: Notifier::new(100),
+            animation_index: Notifier::new(0),
+            frame_index: Notifier::new(0),
+            animation_speed: Notifier::new(24.0),
         }
     }
 }
 
 impl CurrentAnimationData {
     pub fn to_json(&self) -> serde_json::Value {
-        let brightness = self.brightness.lock().unwrap();
-        let animation_index = self.animation_index.lock().unwrap();
-        let frame_index = self.frame_index.lock().unwrap();
-        let animation_speed = self.animation_speed.lock().unwrap();
+        let brightness = *self.brightness.receving_channel.borrow();
+        let animation_index = *self.animation_index.receving_channel.borrow();
+        let frame_index = *self.frame_index.receving_channel.borrow();
+        let animation_speed = *self.animation_speed.receving_channel.borrow();
 
         return json!({
-            "brightness": *brightness,
-            "animation_index": *animation_index,
-            "frame_index": *frame_index,
-            "animation_speed": *animation_speed,
+            "brightness": brightness,
+            "animation_index": animation_index,
+            "frame_index": frame_index,
+            "animation_speed": animation_speed,
         });
     }
 }
@@ -84,6 +95,7 @@ pub struct DayNightConfig {
     pub day_brightness: u8,
     pub night_hour: u32,
     pub night_brightness: u8,
+    pub enabled: bool,
 }
 
 impl Default for DayNightConfig {
@@ -91,8 +103,9 @@ impl Default for DayNightConfig {
         DayNightConfig {
             day_hour: 6,
             day_brightness: 1,
-            night_hour: 16,
+            night_hour: 15,
             night_brightness: 100,
+            enabled: true,
         }
     }
 }
@@ -170,4 +183,107 @@ pub fn read_or_create_config<P: AsRef<Path>>(path: P) -> io::Result<Config> {
     }
     let mut config: Config = toml_config.into();
     Ok(config)
+}
+
+fn convert_to<T>(value: &str) -> Result<T, Response>
+where
+    T: FromStr,
+    <T as FromStr>::Err: ToString,
+{
+    match value.parse::<T>() {
+        Ok(value) => return Ok(value),
+        Err(err) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                json!({"value":value, "error":err.to_string()}).to_string(),
+            )
+                .into_response());
+        }
+    };
+}
+
+pub async fn change_setting(
+    extract::Path((setting, value)): extract::Path<(String, String)>,
+    extract::State(state): extract::State<Arc<AppState>>,
+) -> Response {
+    let mut day_night = state.time_of_day_config.lock().unwrap();
+    let temp_number: u8 = match convert_to(&value) {
+        Err(err) => return err,
+        Ok(value) => value,
+    };
+
+    let old_value = match setting.to_ascii_lowercase().as_str(){
+        "day_hour" => day_night.day_hour.to_string(),
+        "night_hour" => day_night.night_hour.to_string(),
+        "day_brightness" => day_night.day_brightness.to_string(),
+        "night_brightness" => day_night.night_brightness.to_string(),
+        "enabled" => day_night.enabled.to_string(),
+        _ => String::from("Error, not a valid setting. Valid options are [day_hour,day_brightness,night_hour,night_brightness]"),
+    };
+
+    match setting.to_ascii_lowercase().as_str() {
+        "day_hour" => {
+            day_night.day_hour = temp_number.clamp(0, 24) as u32;
+        }
+        "night_hour" => {
+            day_night.night_hour = temp_number.clamp(0, 24) as u32;
+        }
+        "day_brightness" => {
+            day_night.day_brightness = temp_number.clamp(0, 255);
+        }
+        "night_brightness" => {
+            day_night.night_brightness = temp_number.clamp(0, 255);
+        }
+        "enabled" => {
+            day_night.enabled = temp_number.clamp(0, 1) != 0;
+        }
+        _ => {}
+    };
+
+    return (
+        StatusCode::OK,
+        json!({"setting": setting, "value":value, "old value":old_value}).to_string(),
+    )
+        .into_response();
+}
+
+pub async fn get_setting(
+    extract::Path(setting): extract::Path<String>,
+    extract::State(state): extract::State<Arc<AppState>>,
+) -> Response {
+    // let mut old_value = String::new();
+    let day_night = state.time_of_day_config.lock().unwrap();
+
+    let old_value = match setting.to_ascii_lowercase().as_str(){
+        "day_hour" => day_night.day_hour.clone().to_string(),
+        "night_hour" => day_night.night_hour.clone().to_string(),
+        "day_brightness" => day_night.day_brightness.clone().to_string(),
+        "night_brightness" => day_night.night_brightness.clone().to_string(),
+        "enabled" => day_night.enabled.clone().to_string(),
+        _ => String::from("Error, not a valid setting. Valid options are [day_hour,day_brightness,night_hour,night_brightness]"),
+    };
+
+    return (
+        StatusCode::OK,
+        json!({"setting": setting, "value":old_value}).to_string(),
+    )
+        .into_response();
+}
+
+pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> Router {
+    let app = Router::new()
+        .route("/:setting/:value", post(change_setting))
+        .route("/:setting", get(get_setting))
+        // .route("/", get(get_animations))
+        // .route("/:id", get(get_animation_id))
+        // .route("/:id", delete(delete_animation_id))
+        // .route("/:id", post(set_animation))
+        // .route("/brightness/:id", post(set_brightness))
+        // .route("/speed/:fps", post(set_fps))
+        .with_state(state);
+
+    index.insert("/settings/:setting/:value", "POST");
+    index.insert("/settings/:setting", "GET");
+
+    return app;
 }

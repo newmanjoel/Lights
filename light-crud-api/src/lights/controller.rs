@@ -18,6 +18,7 @@ use crate::command::ChangeLighting;
 use crate::config::CurrentAnimationData;
 use crate::database::animation::Animation;
 use crate::database::frame::DataFrame;
+use crate::lights::converter::ByteRGB;
 // use crate::thread_utils::NotifyChecker;
 use crate::thread_utils::Notifier;
 
@@ -107,25 +108,22 @@ pub async fn light_loop(
     current_data: CurrentAnimationData,
 ) -> () {
     println!("Controller: Starting");
-    // let shutdown_notify_controller_loop = notifier.clone();
-    // let mut animation_receiver = config.animation_comms.receving_channel;
-    // let mut brightness_receiver = config.brightness_comms.receving_channel;
 
     let mut controller = setup();
-    // let looping_flag = shutdown_notifier.flag.clone();
 
-    let mut working_animation = Animation::new_with_single_frame(255);
+    // set up a static color so that SOMETHING is displaying
+    let mut working_animation =
+        Animation::new_with_single_frame(ByteRGB::from_hex("#0246a6").unwrap().as_u32());
     working_animation.speed = 1.5;
     let mut working_index = 0;
     let mut working_frame_size = 1;
     let mut working_time = (1000.0 / working_animation.speed) as u64;
+
     while !*shutdown_notifier.receving_channel.borrow_and_update() {
-        // println!("top: {}", shutdown_notifier.is_notified());
-        // if there is a new animation, load it and set the relevant counters
+        // TODO:    at some point I need to check the length of the command receiver a
+        //          and make a decision based off that instead of a timeout
         match timeout(Duration::from_micros(1), command_receiver.recv()).await {
-            Err(_err) => {
-                // println!("animation: {err}");
-            }
+            Err(_err) => {}
             Ok(value) => match value {
                 // this is an enum. So all of the values are garenteed to be correct?
                 None => println!("Error on the animation receive"),
@@ -139,25 +137,35 @@ pub async fn light_loop(
                             "setting the loop time to {working_time:?}ms for {} fps",
                             working_animation.speed
                         );
-
-                        let mut ani_index = current_data.animation_index.lock().unwrap();
-                        *ani_index = working_animation.id;
-                        let mut ani_speed = current_data.animation_speed.lock().unwrap();
-                        *ani_speed = working_animation.speed;
-                        // Do I have to do anything to unlock the mutex? or will it do that as soon as its dropped from scope?
+                        current_data
+                            .animation_index
+                            .sending_channel
+                            .send(working_animation.id)
+                            .unwrap();
+                        current_data
+                            .animation_speed
+                            .sending_channel
+                            .send(working_animation.speed)
+                            .unwrap();
                     }
                     ChangeLighting::Brightness(new_brightness) => {
                         controller.set_brightness(0, new_brightness);
                         controller.set_brightness(1, new_brightness);
                         println!("Setting the Brightness to {}", new_brightness);
 
-                        let mut brightness = current_data.brightness.lock().unwrap();
-                        *brightness = new_brightness;
+                        current_data
+                            .brightness
+                            .sending_channel
+                            .send(new_brightness)
+                            .unwrap();
                     }
                     ChangeLighting::Speed(new_fps) => {
                         working_time = (1000.0 / new_fps) as u64;
-                        let mut ani_speed = current_data.animation_speed.lock().unwrap();
-                        *ani_speed = new_fps;
+                        current_data
+                            .animation_speed
+                            .sending_channel
+                            .send(new_fps)
+                            .unwrap();
                         println!(
                             "setting the loop time to {working_time:?}ms for {} fps",
                             new_fps
@@ -171,10 +179,11 @@ pub async fn light_loop(
         working_index += 1;
         working_index = working_index % working_frame_size;
         write_frame(working_frame, &mut controller);
-        {
-            let mut index = current_data.frame_index.lock().unwrap();
-            *index = working_index;
-        }
+        current_data
+            .frame_index
+            .sending_channel
+            .send(working_index)
+            .unwrap();
         std::thread::sleep(Duration::from_millis(working_time));
         // tokio::time::sleep(Duration::from_millis(working_time)).await;
         // println!("bottom: {}", shutdown_notifier.is_notified());

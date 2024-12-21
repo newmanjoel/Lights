@@ -63,7 +63,7 @@ async fn main() {
         threads.push(handle);
         println!("Webserver: Started");
     } else {
-        println!("Controller: N/A");
+        println!("Webserver: Not Started");
     }
     if config.module_enable.lights {
         let light_shutdown_notifier = notifier.clone();

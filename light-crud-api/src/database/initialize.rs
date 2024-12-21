@@ -1,23 +1,22 @@
 use axum::routing::get;
+// use axum::routing::{get, post};
 use axum::Router;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
 use sqlx::{query, Error};
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::command::ChangeLighting;
-use crate::config::Config;
+use crate::config::{self, Config, DayNightConfig};
 
-// use super::animation::Animation;
 use super::{animation, frame, frame_data, location};
 
 #[derive(Clone, Debug)]
 pub struct AppState {
     pub db: SqlitePool,
     pub send_to_lights: tokio::sync::mpsc::Sender<ChangeLighting>,
-    // pub send_to_controller: tokio::sync::mpsc::Sender<Animation>,
-    // pub send_to_brightness: tokio::sync::mpsc::Sender<u8>,
+    pub time_of_day_config: Arc<Mutex<DayNightConfig>>,
 }
 
 pub async fn setup(config: &Config) -> (Router, Arc<AppState>) {
@@ -28,13 +27,13 @@ pub async fn setup(config: &Config) -> (Router, Arc<AppState>) {
     let state: Arc<AppState> = Arc::new(AppState {
         db: pool,
         send_to_lights: config.command_comms.sending_channel.clone(),
-        // send_to_controller: config.animation_comms.sending_channel.clone(),
-        // send_to_brightness: config.brightness_comms.sending_channel.clone(),
+        time_of_day_config: config.day_night.clone(),
     });
     let frame_routes = frame::router(&mut index, state.clone());
     let frame_data_routes = frame_data::router(&mut index, state.clone());
     let location_routes = location::router(&mut index, state.clone());
     let animation_routes = animation::router(&mut index, state.clone());
+    let config_routes = config::router(&mut index, state.clone());
     let current_data = config.current_data.clone();
 
     let app: Router = Router::new()
@@ -49,7 +48,8 @@ pub async fn setup(config: &Config) -> (Router, Arc<AppState>) {
         .nest("/frame", frame_routes)
         .nest("/frame_data", frame_data_routes)
         .nest("/location", location_routes)
-        .nest("/animation", animation_routes);
+        .nest("/animation", animation_routes)
+        .nest("/settings", config_routes);
 
     return (app, state.clone());
 }
