@@ -146,9 +146,12 @@ pub async fn light_loop(
                         // Do I have to do anything to unlock the mutex? or will it do that as soon as its dropped from scope?
                     }
                     ChangeLighting::Brightness(new_brightness) => {
+                        let existing_brightness = current_data.brightness.lock().unwrap().clone();
                         controller.set_brightness(0, new_brightness);
                         controller.set_brightness(1, new_brightness);
-                        println!("Setting the Brightness to {}", new_brightness);
+                        if new_brightness != existing_brightness {
+                            println!("Setting the Brightness to {}", new_brightness);
+                        }
 
                         let mut brightness = current_data.brightness.lock().unwrap();
                         *brightness = new_brightness;
