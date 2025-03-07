@@ -88,6 +88,7 @@ impl Animation {
 
     pub fn update_in_db(self: &Self, db: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
         todo!();
+        // return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":"Function Not Completed Yet"}).to_string()).into_response()
         // let result = block_on(
         //     sqlx::query("UPDATE Frames SET parent_id = ?, frame_id= ?, data= ? WHERE id = ?")
         //         .bind(self.parent_id)
@@ -104,6 +105,7 @@ impl Animation {
 
     pub fn insert_in_db(self: &Self, db: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
         todo!()
+        // return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":"Function Not Completed Yet"}).to_string()).into_response()
         // let result = block_on(
         //     sqlx::query("INSERT INTO Frames (parent_id, frame_id, data) Values(?, ?, ?)")
         //         .bind(self.parent_id)
@@ -194,7 +196,8 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
 }
 #[allow(unused_variables)]
 async fn post_animations(State(state): State<Arc<AppState>>, payload: String) -> Response {
-    todo!()
+    // todo!()
+    return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":"Function Not Completed Yet"}).to_string()).into_response()
 }
 
 async fn set_brightness(
@@ -236,7 +239,8 @@ async fn set_fps(Path(new_fps): Path<f64>, State(state): State<Arc<AppState>>) -
 
 #[allow(unused_variables)]
 async fn get_animations(State(state): State<Arc<AppState>>) -> Response {
-    todo!();
+    // todo!();
+    return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":"Function Not Completed Yet"}).to_string()).into_response()
 
     // match frame_results {
     //     Ok(value) => return serde_json::to_string(&value).unwrap().into_response(),
