@@ -17,3 +17,6 @@ tokio = {version="1.41.1", features=["macros","rt-multi-thread","signal","time"]
 toml = "0.8.19"
 ws281x = "0.1.0"
 colored = "2.1.0"
+
+[build]
+target = "armv7-unknown-linux-gnueabihf"

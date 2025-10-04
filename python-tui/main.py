@@ -60,7 +60,7 @@ class AnimationController(Controller):
             yield Label("Animation Number", classes='Centered')
             yield Input(
                 placeholder="ID of Animation",
-                validators=[Number(minimum=3, maximum=5)],
+                validators=[Number(minimum=3, maximum=6)],
                 classes='Centered'
                 )
             yield Button("Change Animation", id='send',classes='Centered')

@@ -1,5 +1,10 @@
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::routing::get;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
@@ -10,6 +15,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use toml;
 
 use crate::command::ChangeLighting;
+use crate::database::initialize::AppState;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TOMLConfig {
@@ -42,6 +48,7 @@ pub struct Config {
     pub command_comms: CompactSender<ChangeLighting>,
     pub current_data: CurrentAnimationData,
     pub day_night: Arc<Mutex<DayNightConfig>>,
+    pub file_path: String,
 }
 // file_path = "/home/pi/Lights/db/sqlite.db"
 
@@ -146,6 +153,7 @@ impl Default for Config {
             command_comms: CompactSender::new(),
             current_data: CurrentAnimationData::default(),
             day_night: Arc::new(Mutex::new(DayNightConfig::default())),
+            file_path: "./config.toml".to_string(),
         }
     }
 }
@@ -159,6 +167,7 @@ impl From<TOMLConfig> for Config {
             command_comms: CompactSender::new(),
             current_data: CurrentAnimationData::default(),
             day_night: Arc::new(Mutex::new(a.day_night)),
+            file_path: "./config.toml".to_string(),
         }
     }
 }
@@ -171,10 +180,11 @@ impl Default for DatabaseConfig {
     }
 }
 
-#[allow(dead_code, unused_mut)]
-pub fn read_or_create_config<P: AsRef<Path>>(path: P) -> io::Result<Config> {
+#[allow(unused_mut)]
+pub fn read_or_create_config(path_str: &str) -> io::Result<Config> {
+    let path: &Path = Path::new(path_str);
     let mut toml_config = TOMLConfig::default();
-    if path.as_ref().exists() {
+    if path.exists() {
         let content = fs::read_to_string(&path)?;
         toml_config = toml::from_str(&content).unwrap_or_default();
     } else {
@@ -183,5 +193,26 @@ pub fn read_or_create_config<P: AsRef<Path>>(path: P) -> io::Result<Config> {
         file.write_all(toml_string.as_bytes())?;
     }
     let mut config: Config = toml_config.into();
+    config.file_path = String::from(path_str);
     Ok(config)
 }
+
+pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>, config: &Config) -> axum::Router {
+
+    let get_config = {
+        let config = config.clone(); // Clone config so it can be moved into the closure
+        move |axum::extract::State(state): State<Arc<AppState>>| async move {
+            // let something = json!(config.clone()); // Use config inside the closure
+            (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":"Function Not Completed Yet"}).to_string()).into_response()
+        }
+    };
+
+    
+    let app = axum::Router::new()
+        .route("/", get(get_config))
+        .with_state(state);
+
+    index.insert("/config", "GET");
+    return app;
+}
+

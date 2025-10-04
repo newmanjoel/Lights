@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::command::ChangeLighting;
-use crate::config::Config;
+use crate::config::{self, Config};
 
 // use super::animation::Animation;
 use super::{animation, frame, frame_data, location};
@@ -36,6 +36,8 @@ pub async fn setup(config: &Config) -> (Router, Arc<AppState>) {
     let location_routes = location::router(&mut index, state.clone());
     let animation_routes = animation::router(&mut index, state.clone());
     let current_data = config.current_data.clone();
+    let setting_routes = config::router(&mut index, state.clone(), config);
+    
 
     let app: Router = Router::new()
         .route(
@@ -49,7 +51,8 @@ pub async fn setup(config: &Config) -> (Router, Arc<AppState>) {
         .nest("/frame", frame_routes)
         .nest("/frame_data", frame_data_routes)
         .nest("/location", location_routes)
-        .nest("/animation", animation_routes);
+        .nest("/animation", animation_routes)
+        .nest("/setting", setting_routes);
 
     return (app, state.clone());
 }
