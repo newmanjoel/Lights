@@ -42,8 +42,15 @@ impl LedLocation {
             },
             None => return Err(json!({"error":format!("could not find y")})),
         };
+        let id = match dict.get("id") {
+            Some(value) => match value.as_i64() {
+                Some(value) => value as i32,
+                None => return Err(json!({"error":format!("could not convert id entry to a i64")})),
+            },
+            None => -1 as i32,
+        };
 
-        return Ok(LedLocation { id: -1, x: x, y: y });
+        return Ok(LedLocation { id: id, x: x, y: y });
     }
 }
 
@@ -51,12 +58,13 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
     let app = Router::new()
         .route("/", post(post_location))
         .route("/", get(get_all_location))
+        .route("/", put(put_location_data))
         .route("/:id", get(get_location_id))
         .route("/:id", put(put_location_id))
         .route("/:id", delete(delete_location_id))
         .with_state(state);
 
-    index.insert("/location", "GET,POST");
+    index.insert("/location", "GET,POST,PUT");
     index.insert("/location/:id", "GET,PUT,DELETE");
     return app;
 }
@@ -127,11 +135,76 @@ pub async fn delete_location_id(
         .into_response();
 }
 
-pub async fn put_location_id(
-    extract::Path(frame_id): extract::Path<i32>,
+
+pub async fn put_location_data(
     extract::State(state): extract::State<Arc<AppState>>,
     payload: String,
 ) -> Response {
+    // Example:
+    // curl -X PUT IP:PORT/location -d {"location": {"id":int, "x":float,"y":float}}
+    let local_example = r#"{"location": {"id":int, "x":float, "y":float}}"}"#;
+    let json_payload: Value = match serde_json::from_str(&payload) {
+        Ok(result) => result,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                json!({"error":format!("{error:?}"), "example":local_example}).to_string(),
+            )
+                .into_response();
+        }
+    };
+
+    let location_dict = match json_payload.get("location") {
+        Some(value) => value,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                json!({"error":"frame_data not found", "example":local_example}).to_string(),
+            )
+                .into_response()
+        }
+    };
+
+    let mut led: LedLocation = match LedLocation::extract_from_dict(&location_dict) {
+        Ok(value) => value,
+        Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
+    };
+    // led.id = led_id;
+
+    // if (led.id == -1 as i32){
+    //     return (StatusCode::BAD_REQUEST, json!({"error":"id not found", "example":local_example}).to_string()).into_response()
+    // }
+
+    let led_results = sqlx::query(UPDATE_SQL_STATEMENT)
+        .bind(led.x)
+        .bind(led.y)
+        .bind(led.id)
+        .execute(&state.db)
+        .await;
+
+    match led_results {
+        Ok(value) => {
+            return json!({"result": format!("{value:?}")})
+                .to_string()
+                .into_response()
+        }
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error":format!("{value:?}")}).to_string(),
+            )
+                .into_response()
+        }
+    };
+}
+
+pub async fn put_location_id(
+    extract::Path(led_id): extract::Path<i32>,
+    extract::State(state): extract::State<Arc<AppState>>,
+    payload: String,
+) -> Response {
+    // Example:
+    // curl -X PUT IP:PORT/location/<id> -d {"x":float,"y":float}
     let json_payload: Value = match serde_json::from_str(&payload) {
         Ok(result) => result,
         Err(error) => {
@@ -143,22 +216,11 @@ pub async fn put_location_id(
         }
     };
 
-    let frame_dict = match json_payload.get("frame") {
-        Some(value) => value,
-        None => {
-            return (
-                StatusCode::NOT_FOUND,
-                json!({"error":"frame_data not found", "example":EXAMPLE_DATA}).to_string(),
-            )
-                .into_response()
-        }
-    };
-
-    let mut led: LedLocation = match LedLocation::extract_from_dict(frame_dict) {
+    let mut led: LedLocation = match LedLocation::extract_from_dict(&json_payload) {
         Ok(value) => value,
         Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
     };
-    led.id = frame_id;
+    led.id = led_id;
 
     let led_results = sqlx::query(UPDATE_SQL_STATEMENT)
         .bind(led.x)
@@ -203,7 +265,7 @@ pub async fn post_location(
         None => {
             return (
                 StatusCode::BAD_REQUEST,
-                json!({"error":"location not found", "example":EXAMPLE_DATA}).to_string(),
+                json!({"error":"location not found", "example":EXAMPLE_DATA, "actual":json_payload}).to_string(),
             )
                 .into_response()
         }
