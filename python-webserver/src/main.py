@@ -4,14 +4,32 @@ import time
 import numpy as np
 import pandas as pd
 import requests
-import streamlit as st
-import altair as alt
 
-st.write("Title")
+import dash
+from dash.dependencies import Input, Output
+from dash import html
+import dash_core_components as dcc
+from queue import Queue
+
+
+
+
+
+
+app = dash.Dash(__name__)
+app.layout = html.Div([
+
+    dcc.Interval(
+        id='interval-component',
+        interval=1*10000,  # in milliseconds
+        n_intervals=0
+    ),
+
+])
+
+
 base_url = 'http://192.168.2.24:3000'
-col1, col2 = st.columns([1,1])
-col1.write("col1")
-col2.write("col2")
+
 
 
 def get_current_data():
