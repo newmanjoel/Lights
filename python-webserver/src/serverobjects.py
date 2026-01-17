@@ -22,7 +22,9 @@ class Color:
         """Convert RGB values to hex color code."""
         hex_color = f"#{int(self.r):02X}{int(self.g):02X}{int(self.b):02X}"
         return hex_color
-
+    
+    def to_int(self) -> int:
+        return (self.r << 16) | (self.g << 8) | self.b
 
 @dataclass
 class FrameData:

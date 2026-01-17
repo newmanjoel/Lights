@@ -1,6 +1,7 @@
 
 
 import json
+from pathlib import Path
 from random import random
 import sys
 import numpy as np
@@ -41,17 +42,26 @@ sections_y = [
 #     print(f"index:{index}:{result.json()=}")
 # sys.exit(0)
 
+all_points = {}
+working_index = 0
 for section_x, section_y in zip(sections_x,sections_y):
     for point in zip(section_x, section_y):
         # the random is used to make sure that each is a unique point
-        x = float(point[0]) + random()/100000
-        y = float(point[1]) + random()/100000
+        x = float(point[0])
+        y = float(point[1])
         print(f"settings point {x=} {y=}")
         working_point = {"x":x, "y":y}
-        result = requests.post(f"{base_url}/location",data=json.dumps({"location":working_point}))
-        print(f"{result.json()=}")
+        all_points[f"{working_index}"] = working_point
+        working_index += 1
+        # result = requests.post(f"{base_url}/location",data=json.dumps({"location":working_point}))
+        # print(f"{result.json()=}")
         # sys.exit(1)
 
+export_location = Path("exported_locations.json")
+export_location.touch(exist_ok=True)
+export_location.write_text(json.dumps(all_points, indent=4), encoding='utf-8')
+
+print(f"Data saved at {export_location.absolute()}")
 
 # last_x = 0
 # last_y = 0
