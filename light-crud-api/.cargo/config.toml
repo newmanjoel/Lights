@@ -1,2 +1,6 @@
+# No build target specified - use native x86_64 builds by default with `cargo build --release`
+[build]
+target = "aarch64-unknown-linux-gnu"
+
 [target.aarch64-unknown-linux-gnu]
 linker = "aarch64-linux-gnu-gcc"

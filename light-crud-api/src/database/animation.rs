@@ -19,6 +19,8 @@ use super::{
     initialize::AppState,
 };
 
+use crate::command::ChangeLighting;
+
 const _EXAMPLE_DATA: &str = r#"
 {
     "animation":{
@@ -86,6 +88,7 @@ impl Animation {
 
     pub fn update_in_db(self: &Self, db: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
         todo!();
+        // return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":"Function Not Completed Yet"}).to_string()).into_response()
         // let result = block_on(
         //     sqlx::query("UPDATE Frames SET parent_id = ?, frame_id= ?, data= ? WHERE id = ?")
         //         .bind(self.parent_id)
@@ -102,6 +105,7 @@ impl Animation {
 
     pub fn insert_in_db(self: &Self, db: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
         todo!()
+        // return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":"Function Not Completed Yet"}).to_string()).into_response()
         // let result = block_on(
         //     sqlx::query("INSERT INTO Frames (parent_id, frame_id, data) Values(?, ?, ?)")
         //         .bind(self.parent_id)
@@ -178,17 +182,22 @@ pub fn router(index: &mut HashMap<&'static str, &str>, state: Arc<AppState>) -> 
         .route("/", get(get_animations))
         .route("/:id", get(get_animation_id))
         .route("/:id", delete(delete_animation_id))
-        .route("/brightness/set/:id", post(set_brightness))
+        .route("/:id", post(set_animation))
+        .route("/brightness/:id", post(set_brightness))
+        .route("/speed/:fps", post(set_fps))
         .with_state(state);
 
     index.insert("/animation", "GET,POST");
-    index.insert("/animation/:id", "GET,DELETE");
-    index.insert("/animation/brightness/set/:value", "POST");
+    index.insert("/animation/:id", "GET,DELETE,POST");
+    index.insert("/animation/brightness/:value", "POST");
+    index.insert("/animation/speed/:value", "POST");
+    // index.insert("/animation/:id", "POST");
     return app;
 }
 #[allow(unused_variables)]
 async fn post_animations(State(state): State<Arc<AppState>>, payload: String) -> Response {
-    todo!()
+    // todo!()
+    return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":"Function Not Completed Yet"}).to_string()).into_response()
 }
 
 async fn set_brightness(
@@ -196,8 +205,8 @@ async fn set_brightness(
     State(state): State<Arc<AppState>>,
 ) -> Response {
     state
-        .send_to_brightness
-        .send(brightness_value)
+        .send_to_lights
+        .send(ChangeLighting::Brightness(brightness_value))
         .await
         .unwrap();
     return (
@@ -205,6 +214,14 @@ async fn set_brightness(
         json!({"brightness":brightness_value}).to_string(),
     )
         .into_response();
+}
+async fn set_fps(Path(new_fps): Path<f64>, State(state): State<Arc<AppState>>) -> Response {
+    state
+        .send_to_lights
+        .send(ChangeLighting::Speed(new_fps))
+        .await
+        .unwrap();
+    return (StatusCode::OK, json!({"speed":new_fps}).to_string()).into_response();
 }
 
 // pub fn get_frame_data(id: i32, db: &Pool<Sqlite>) -> Option<FrameMetadata> {
@@ -222,7 +239,8 @@ async fn set_brightness(
 
 #[allow(unused_variables)]
 async fn get_animations(State(state): State<Arc<AppState>>) -> Response {
-    todo!();
+    // todo!();
+    return (StatusCode::INTERNAL_SERVER_ERROR, json!({"error":"Function Not Completed Yet"}).to_string()).into_response()
 
     // match frame_results {
     //     Ok(value) => return serde_json::to_string(&value).unwrap().into_response(),
@@ -261,9 +279,27 @@ pub async fn get_animation_id(
         }
     };
 
+    return (StatusCode::OK, json!({"animation":ani}).to_string()).into_response();
+}
+
+pub async fn set_animation(
+    Path(frame_id): Path<i32>,
+    State(state): State<Arc<AppState>>,
+) -> Response {
+    let ani = match Animation::get_from_db(frame_id, &state.db) {
+        Ok(value) => value,
+        Err(value) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": value.to_string()}).to_string(),
+            )
+                .into_response()
+        }
+    };
+
     state
-        .send_to_controller
-        .send(ani.clone())
+        .send_to_lights
+        .send(ChangeLighting::Animation(ani.clone()))
         .await
         .expect("Could not send data");
 

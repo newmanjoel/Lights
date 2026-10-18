@@ -13,6 +13,7 @@ use serde_json::{json, Value};
 
 use sqlx::{FromRow, Pool, Sqlite};
 
+use crate::command::ChangeLighting;
 use crate::database::initialize::AppState;
 
 use super::{animation, frame_data::FrameMetadata};
@@ -289,8 +290,8 @@ pub async fn show_frame_id(
     ani.frames.push(DataFrame::from(&data));
 
     state
-        .send_to_controller
-        .send(ani)
+        .send_to_lights
+        .send(ChangeLighting::Animation(ani))
         .await
         .expect("Could not send data");
 

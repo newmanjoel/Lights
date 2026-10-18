@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<models type="exported">
+	<model name="Poly Line" DisplayAs="Poly Line" AlternateNodes="false" Antialias="1" Controller="No Controller" Corner1="" Corner2="" Corner3="Neither" Corner4="Neither" Corner5="Neither" Corner6="Neither" cPointData="" Dir="L" DropPattern="1" LayoutGroup="Default" LightsPerNode="1" Locked="1" ModelHeight="1.000000" NodesPerString="250" NumPoints="6" PixelSize="2" PointData="256.310333,7.881653,31.514160,16.310333,7.881653,31.514160,16.310333,83.881653,-208.485840,16.310333,83.881653,-568.485840,256.310333,7.881653,-568.485840,256.310333,7.881653,31.514160" PolyStrings="1" ScaleX="1.000000" ScaleY="1.000000" ScaleZ="1.000000" Seg1="32" Seg2="36" Seg3="52" Seg4="36" Seg5="94" SegsExpanded="FALSE" SourceVersion="2026.18.1" StartChannel="1" StartSide="B" StringType="RGB Nodes" Transparency="0" versionNumber="8" WorldPosX="-256.310333" WorldPosY="292.118347" WorldPosZ="-31.514160" />
+</models>
