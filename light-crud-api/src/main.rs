@@ -38,7 +38,7 @@ async fn main() {
 
     let mut threads = Vec::new();
 
-    if config.module_enable.timed_brightness {
+    if config.module_enable.lock().unwrap().timed_brightness {
         let timed_brightness_notifier = notifier.clone();
         let command_comms_tx = config.command_comms.sending_channel.clone();
         threads.push(tokio::spawn(timed_brightness(
@@ -48,16 +48,17 @@ async fn main() {
         )));
     }
 
-    if config.module_enable.webserver {
+    let modules = config.module_enable.lock().unwrap().clone();
+    if modules.webserver {
         let shutdown_notify_web_server = notifier.clone();
 
         let (app, temp_app_state) = database::initialize::setup(&config).await;
         app_state = Some(temp_app_state);
 
-        let listener =
-            tokio::net::TcpListener::bind(format!("{}:{}", config.web.interface, config.web.port))
-                .await
-                .unwrap();
+        let web = config.web.lock().unwrap().clone();
+        let listener = tokio::net::TcpListener::bind(format!("{}:{}", web.interface, web.port))
+            .await
+            .unwrap();
         let handle = tokio::spawn(async move {
             println!("{}", "Webserver: Starting");
             axum::serve(listener, app.into_make_service())
@@ -71,7 +72,7 @@ async fn main() {
     } else {
         println!("Controller: N/A");
     }
-    if config.module_enable.lights {
+    if config.module_enable.lock().unwrap().lights {
         let light_shutdown_notifier = notifier.clone();
         // let animation_comms_rx = config.animation_comms.receving_channel;
         // let brightness_comms_rx = config.brightness_comms.receving_channel;
@@ -104,7 +105,7 @@ async fn main() {
         println!("Not Starting Lighting Controller");
     }
 
-    if !config.module_enable.lights {
+    if !config.module_enable.lock().unwrap().lights {
         let shutdown_notify_main_loop = notifier.clone();
         println!("Press Ctrl + C to end the program.");
         wait_for_shutdown(shutdown_notify_main_loop.notify).await;

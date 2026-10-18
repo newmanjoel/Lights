@@ -165,7 +165,7 @@ pub async fn put_location_data(
         }
     };
 
-    let mut led: LedLocation = match LedLocation::extract_from_dict(&location_dict) {
+    let led: LedLocation = match LedLocation::extract_from_dict(&location_dict) {
         Ok(value) => value,
         Err(value) => return (StatusCode::BAD_REQUEST, value.to_string()).into_response(),
     };
