@@ -1,0 +1,9 @@
+Effect Name,StartTime,EndTime,Duration,Description,Element,ElementType,Files
+"Twinkle",00:00.000,00:05.000,00:05.000,"","Poly Line",Model,
+"Effect Count",1
+
+Effect Usage Summary
+Effect Name,Occurences,TotalTime
+"Twinkle",1,00:05.000
+
+Summary of files used

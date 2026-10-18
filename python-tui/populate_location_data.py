@@ -21,6 +21,17 @@ garden_left = [0,0]
 garden_right = [-240,0]
 door_right = [-240, -600]
 door_left = [0, -600]
+# garden_door_height = 300
+# garage_door_height = 367
+
+# 3D points
+#   P1             P2             P3                P4                 P5            P6
+#         32              36                 52                 36              94
+# [0,0,300] -> [-240,0,300]
+#              [-240,0,300] -> [-240,-240,376]
+#                              [-240,-240,376] -> [-240,-600,376]
+#                                                 [-240,-600,376] -> [0,-600,300]
+#                                                                    [0,-600,300] -> [0,0,300]
 
 sections_x = [
     np.linspace(garden_left[0], garden_right[0], 32),
